@@ -487,6 +487,7 @@ def genesis_block():
     print(block.toJSON()['header'])
 
     writeblock(block, 0)
+    add_tx_to_address_index(block, 0)
     update_blockchain_info(0, block.hash, block.BlockHeader.targetDiff)
 
 def get_fee(list_trans: list):
@@ -613,6 +614,7 @@ def mining() -> Block:
             new_block = create_new_block(transList)
             height = get_blockchain_info()['height'] + 1
             writeblock(new_block, height)
+            add_tx_to_address_index(new_block, height)
             update_blockchain_info(height, new_block.hash, new_block.BlockHeader.targetDiff)
         
         print("new block mine successfuly")
@@ -630,7 +632,7 @@ def synchronize(ClientSocket):
         return
     else:
         print("synchronizing")
-        start = self_blockchain_info['height'] - 50
+        start = max(self_blockchain_info['height'] - 50, 0)
         end = self_blockchain_info['height']
         sync_start_height = -1
         while True:
@@ -638,7 +640,7 @@ def synchronize(ClientSocket):
 
             ClientSocket.sendall(data.encode())
             list_header_json = json.loads(ClientSocket.recv(65536).decode()) #list header_json
-            # print(list_header_json)
+            print(list_header_json)
 
             list_length = len(list_header_json)
             for i in range(list_length - 1, -1, -1):
@@ -650,10 +652,12 @@ def synchronize(ClientSocket):
             if sync_start_height != -1:
                 break
             
-            start = start - 50
+            start = max(start - 50, 0)
             end = end - 50
 
         for i in range(peer_blockchain_info['height'], sync_start_height - 1, -1):
+            block = getblock(i)
+            del_tx_from_address_index(block, i)
             deleteBlock(i)
 
         #synchronize
@@ -664,34 +668,47 @@ def synchronize(ClientSocket):
             block = Block.from_json(block_json)
             if verify_block(block):
                 writeblock(block, i)
+                add_tx_to_address_index(block, i)
                 update_blockchain_info(i, block.hash, block.BlockHeader.targetDiff)
         
         print("finish synchronize")
 
-def add_tx_to_address_index(trans: Transaction, blockHeight: int):
-    for input in trans.inputList:
-        address = pubkey_to_address(input.publicKey)
-
-        result = mydb['UserAddress'].find_one({"_id": address})
-        if result == None:
-            result = {
-                "_id": address,
-                "tx": 1
-            }
-
-
-
-
-    mydb['UserAddress'].update_one({'_id':3})
-    pass
-
-def update_user_address_index(block: Block, blockHeight: int):
+def del_tx_from_address_index(block: Block, blockHeight: int):
     transList = block.BlockBody.transList
-    
     for trans in transList:
+        for input in trans.inputList:
+            address = pubkey_to_address(input.publicKey)
 
-        pass
-    pass
+            result = mydb['UserAddress'].find_one({"_id": address})
+            
+            for each in result['list_trans']:
+                if each['trans_hash'] == trans.hash:
+                    result['list_trans'].remove(each)
+
+            mydb['UserAddress'].update_one({"_id": address}, {"$set": {"list_trans": result['list_trans']}}, upsert=True)
+
+def add_tx_to_address_index(block: Block, blockHeight: int):
+    transList = block.BlockBody.transList
+    for trans in transList:
+        for input in trans.inputList:
+            address = pubkey_to_address(input.publicKey)
+
+            result = mydb['UserAddress'].find_one({"_id": address})
+            if result == None:
+                result = {
+                    "_id": address,
+                    "list_trans": [{
+                        'trans_hash': trans.hash,
+                        'blockHeight': blockHeight
+                    }]
+                }
+            else:
+                result['list_trans'].append({
+                    'trans_hash': trans.hash,
+                    'blockHeight': blockHeight
+                })
+
+            mydb['UserAddress'].update_one({"_id": address}, {"$set": {"list_trans": result['list_trans']}}, upsert=True)
 
 if __name__ == "__main__":
     p = Pool(processes=2)

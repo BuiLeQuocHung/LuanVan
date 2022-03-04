@@ -82,6 +82,7 @@ def threaded_client(connection):
                 if blockchain_info: 
                     if block.BlockHeader.prevHash == blockchain_info['bestBlockHash']:
                         writeblock(block, blockchain_info['height'] + 1)
+                        update_user_address_index(block, blockchain_info['height'] + 1)
                         update_blockchain_info(blockchain_info['height'] + 1, block.hash, block.BlockHeader.targetDiff)
 
         elif task =='submittransaction':
@@ -585,6 +586,7 @@ def genesis_block():
     print(block.toJSON()['header'])
 
     writeblock(block, 0)
+    update_user_address_index(block, 0)
     update_blockchain_info(0, block.hash, block.BlockHeader.targetDiff)
 
 def get_fee(list_trans: list):
@@ -702,7 +704,31 @@ def isGenesisBlockExist():
             
 #         time.sleep(5)
 
-    
+def add_tx_to_address_index(trans: Transaction, blockHeight: int):
+    for input in trans.inputList:
+        address = pubkey_to_address(input.publicKey)
+
+        result = mydb['UserAddress'].find_one({"_id": address})
+        if result == None:
+            result = {
+                "_id": address,
+                "list_trans": [{
+                    'trans_hash': trans.hash,
+                    'blockHeight': blockHeight
+                }]
+            }
+        else:
+            result['list_trans'].append({
+                'trans_hash': trans.hash,
+                'blockHeight': blockHeight
+            })
+
+        mydb['UserAddress'].update_one({"_id": address}, {"$set": {"list_trans": result['list_trans']}}, upsert=True)
+
+def update_user_address_index(block: Block, blockHeight: int):
+    transList = block.BlockBody.transList
+    for trans in transList:
+        add_tx_to_address_index(trans, blockHeight)
 
     
 
