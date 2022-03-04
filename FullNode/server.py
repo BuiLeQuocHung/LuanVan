@@ -552,6 +552,9 @@ def find_nonce(version, prevHash, merkleRoot, timeStamp, targetDiff):
     #         'nonce': nonce,
     #     }))
     # print(hash_value)
+
+    print(int.from_bytes(binascii.unhexlify(hash_value), 'big'))
+    print( bits_to_target(targetDiff))
     return nonce
 
 def hash(version, prevHash, merkleRoot, timeStamp, targetDiff, nonce):
@@ -559,7 +562,7 @@ def hash(version, prevHash, merkleRoot, timeStamp, targetDiff, nonce):
             'version': version,
             'prevHash': prevHash,
             'merkleRoot': merkleRoot,
-            'timeStamp ': timeStamp ,
+            'timeStamp': timeStamp ,
             'targetDiff': targetDiff,
             'nonce': nonce,
         }).encode()
@@ -579,13 +582,14 @@ def genesis_block():
     timeStamp = 1
     targetDiff = 0x1f00ffff
     nonce = find_nonce(version, prevHash, merkleRoot, timeStamp, targetDiff)
-    print('nonce: ', nonce)
 
     header = BlockHeader(version, prevHash, merkleRoot, timeStamp, targetDiff, nonce)
 
     block = Block(header, body)
     print('block hash: ', block.getHash())
-    print(block.toJSON()['header'])
+    print("block header hash", block.BlockHeader.getHash())
+    print("int of hash: ", int.from_bytes(binascii.unhexlify(block.hash.encode()), "big"))
+    print("target Difficulty: ", bits_to_target(block.BlockHeader.targetDiff))
 
     writeblock(block, 0)
     update_user_address_index(block, 0)
@@ -738,7 +742,7 @@ def update_user_address_index(block: Block, blockHeight: int):
 
 if __name__ == "__main__":
     ServerSocket = socket.socket()
-    host = '192.168.11.115'
+    host = '192.168.1.9'
     port = 12345
     ThreadCount = 0
     try:

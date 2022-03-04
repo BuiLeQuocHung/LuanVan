@@ -5,7 +5,7 @@
         "merkleRoot": "7e64e487ab36bee83db6ac682da01ffac6ac63dacd49011cdf062bbc759234a1", 
         "timeStamp": 1, 
         "targetDiff": 520159231, 
-        "nonce": 7107
+        "nonce": 335
     }, 
     "body": {
         "transactions": [

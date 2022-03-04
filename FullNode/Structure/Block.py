@@ -32,17 +32,8 @@ class BlockHeader:
             'nonce': self.nonce,
         }
 
-    def toJSONforHash(self):
-        return {
-            'version': self.version,
-            'prevHash': self.prevHash,
-            'merkleRoot': self.merkleRoot,
-            'timeStamp': self.timeStamp ,
-            'targetDiff': self.targetDiff,
-        }
-
     def getHash(self):
-        text = json.dumps(self.toJSONforHash()).encode()
+        text = json.dumps(self.toJSON()).encode()
         return hashlib.sha256(text).hexdigest()
 
     @staticmethod
@@ -104,7 +95,7 @@ class Block:
         self.hash = self.getHash()
 
     def getHash(self):
-        text = json.dumps(self.BlockHeader.toJSONforHash()).encode()
+        text = json.dumps(self.BlockHeader.toJSON()).encode()
         return hashlib.sha256(text).hexdigest()
     
     def toJSON(self):

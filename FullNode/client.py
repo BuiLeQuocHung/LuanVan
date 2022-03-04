@@ -466,7 +466,7 @@ def hash(version, prevHash, merkleRoot, timeStamp, targetDiff, nonce):
             'version': version,
             'prevHash': prevHash,
             'merkleRoot': merkleRoot,
-            'timeStamp ': timeStamp ,
+            'timeStamp': timeStamp ,
             'targetDiff': targetDiff,
             'nonce': nonce,
         }).encode()
@@ -492,7 +492,8 @@ def genesis_block():
 
     block = Block(header, body)
     print('block hash: ', block.getHash())
-    print(block.toJSON()['header'])
+    print("block header hash", block.BlockHeader.getHash())
+    print("int of hash: ", int.from_bytes(block.hash, "big"))
 
     writeblock(block, 0)
     add_tx_to_address_index(block, 0)
@@ -538,8 +539,14 @@ def create_new_block(list_trans: list):
     nonce = find_nonce(version, prevHash, merkleRoot, timeStamp, targetDiff)
 
     header = BlockHeader(version, prevHash, merkleRoot, timeStamp, targetDiff, nonce)
+    
 
     block = Block(header, body)
+    print('block hash: ', block.getHash())
+    print("block header hash", block.BlockHeader.getHash())
+    print("int of hash: ", int.from_bytes(block.hash.encode(), "big"))
+    print("target Difficulty: ", block.BlockHeader.targetDiff)
+
     return block
     
 
@@ -586,7 +593,7 @@ def isGenesisBlockExist():
 
 def connectPeer():
     ClientSocket = socket.socket()
-    host = '192.168.11.130'
+    host = '192.168.1.9'
     port = 12345
     while True:
         print('Trying to connection')
