@@ -70,6 +70,7 @@ def threaded_client(connection):
 
         elif task == "getlistblockheaders":
             start, end = data_decode['param']
+            print("start", start, "end", end)
             result = getlistblockheaders(start, end)
             connection.sendall(json.dumps(result).encode())
 
@@ -172,7 +173,7 @@ def get_tran_index_info(collection_name: str, tran_hash: str):
     return mydb[collection_name].find_one({"_id": tran_hash})
 
 def get_block_index_info(block_hash: str):
-    return BlockColl.find_one({"_id": block_hash})
+    return mydb['Block'].find_one({"_id": block_hash})
 
 def get_addr_UTXO_parallel(address: str):
     a = ['Chainstate0', 'Chainstate1', 'Chainstate2', 'Chainstate3']
@@ -210,6 +211,7 @@ def getblockheader(blockHeight: int) -> BlockHeader:
 
 def getlistblockheaders(start: int, end: int) -> BlockHeader:
     result = []
+    print(start, end)
     for i in range(start, end + 1):
         temp = getblockheader(i)
         if temp != None:
@@ -243,10 +245,10 @@ def writeblock(block: Block, blockHeight: int):
         writeTrans(tran.hash, blockHeight, tran_idx)
     
 def writeBlockIndex(block_hash, blockHeight):
-    BlockColl.insert_one({"_id": block_hash, "blockHeight": blockHeight})
+    mydb['Block'].insert_one({"_id": block_hash, "blockHeight": blockHeight})
 
 def deleteBlockIndex(block_hash):
-    BlockColl.delete_one({"_id": block_hash})
+    mydb['Block'].delete_one({"_id": block_hash})
 
 def deleteBlock(blockHeight: int):
     blockDataPath = os.path.join(root_path, "BlockData")
@@ -553,7 +555,7 @@ def find_nonce(version, prevHash, merkleRoot, timeStamp, targetDiff):
     return nonce
 
 def hash(version, prevHash, merkleRoot, timeStamp, targetDiff, nonce):
-    text = str({
+    text = json.dumps({
             'version': version,
             'prevHash': prevHash,
             'merkleRoot': merkleRoot,
@@ -566,7 +568,7 @@ def hash(version, prevHash, merkleRoot, timeStamp, targetDiff, nonce):
 def genesis_block():
     transInput = []
     transOutput = [TransactionOutput(100000, "1L2DhfDNRyK2KLwX9PU4YWaevRmiT5sgHM")]
-    timeStamp = time.time()
+    timeStamp = 1
 
     trans = Transaction(transInput, transOutput, timeStamp)
     body = BlockBody([trans])
@@ -574,7 +576,7 @@ def genesis_block():
     version = 1
     prevHash = "0000000000000000000000000000000000000000000000000000000000000000"
     merkleRoot = body.getHash()
-    timeStamp = time.time()
+    timeStamp = 1
     targetDiff = 0x1f00ffff
     nonce = find_nonce(version, prevHash, merkleRoot, timeStamp, targetDiff)
     print('nonce: ', nonce)

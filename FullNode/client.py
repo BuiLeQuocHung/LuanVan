@@ -1,4 +1,5 @@
 import socket, os, json, ecdsa
+from tkinter.messagebox import NO
 from _thread import *
 
 from config import *
@@ -88,7 +89,7 @@ def get_tran_index_info(collection_name: str, tran_hash: str):
     return mydb[collection_name].find_one({"_id": tran_hash})
 
 def get_block_index_info(block_hash: str):
-    return BlockColl.find_one({"_id": block_hash})
+    return mydb['Block'].find_one({"_id": block_hash})
 
 def get_addr_UTXO_parallel(address: str):
     a = ['Chainstate0', 'Chainstate1', 'Chainstate2', 'Chainstate3']
@@ -159,10 +160,10 @@ def writeblock(block: Block, blockHeight: int):
         writeTrans(tran.hash, blockHeight, tran_idx)
     
 def writeBlockIndex(block_hash, blockHeight):
-    BlockColl.insert_one({"_id": block_hash, "blockHeight": blockHeight})
+    mydb['Block'].insert_one({"_id": block_hash, "blockHeight": blockHeight})
 
 def deleteBlockIndex(block_hash):
-    BlockColl.delete_one({"_id": block_hash})
+    mydb['Block'].delete_one({"_id": block_hash})
 
 def deleteBlock(blockHeight: int):
     blockDataPath = os.path.join(root_path, "BlockData")
@@ -271,6 +272,7 @@ def writeUTXO(UTXO: TransactionOutput, tran_hash: str, idx: int, blockHeight: in
 
 def verify_block(block: Block):
     if len(block.BlockBody.transList) == 0:
+        print("here 1")
         return False
 
     checkCoinbase = False
@@ -279,16 +281,20 @@ def verify_block(block: Block):
             if not checkCoinbase:
                 checkCoinbase = True
             else:
+                print("here 2")
                 return False #only one coinbase per block
 
         if not verify_tx(trans):
+            print("here 3")
             return False
 
         
     if block.BlockBody.getHash() != block.BlockHeader.merkleRoot:
+        print("here 4")
         return False
 
     if not check_proof_of_work(block.getHash(), block.BlockHeader.targetDiff):
+        print("here 5")
         return False
     
     return True
@@ -300,6 +306,8 @@ def check_proof_of_work(block_hash: str, targetDiff: int):
     if not block_hash or not targetDiff:
         return False
     block_hash_bytes = binascii.unhexlify(block_hash.encode())
+    print("block hash bytes: ", hex(int.from_bytes(block_hash_bytes, 'big')))
+    print("targetDiff: ", hex(bits_to_target(targetDiff)))
     if int.from_bytes(block_hash_bytes, 'big') < bits_to_target(targetDiff):
         return True
     return False
@@ -454,7 +462,7 @@ def find_nonce(version, prevHash, merkleRoot, timeStamp, targetDiff):
     return nonce
 
 def hash(version, prevHash, merkleRoot, timeStamp, targetDiff, nonce):
-    text = str({
+    text = json.dumps({
             'version': version,
             'prevHash': prevHash,
             'merkleRoot': merkleRoot,
@@ -640,11 +648,13 @@ def synchronize(ClientSocket):
 
             ClientSocket.sendall(data.encode())
             list_header_json = json.loads(ClientSocket.recv(65536).decode()) #list header_json
-            print(list_header_json)
+            print("list header json: ", list_header_json)
 
             list_length = len(list_header_json)
             for i in range(list_length - 1, -1, -1):
                 block = getblock(end - ((list_length - 1) - i))
+                print("block hash: ", block.hash)
+                print("block header hash: ", BlockHeader.from_json(list_header_json[i]).getHash())
                 if block.hash == BlockHeader.from_json(list_header_json[i]).getHash():
                     sync_start_height = i + 1 # because i_th block hash is equal
                     break
@@ -657,8 +667,9 @@ def synchronize(ClientSocket):
 
         for i in range(peer_blockchain_info['height'], sync_start_height - 1, -1):
             block = getblock(i)
-            del_tx_from_address_index(block, i)
-            deleteBlock(i)
+            if block != None:
+                del_tx_from_address_index(block, i)
+                deleteBlock(i)
 
         #synchronize
         for i in range(sync_start_height, peer_blockchain_info['height'] + 1):
@@ -666,6 +677,8 @@ def synchronize(ClientSocket):
             ClientSocket.sendall(data.encode())
             block_json = json.loads(ClientSocket.recv(65536).decode())
             block = Block.from_json(block_json)
+            print("block hash: ", block.hash)
+            print("verify block: ", verify_block(block))
             if verify_block(block):
                 writeblock(block, i)
                 add_tx_to_address_index(block, i)
@@ -674,6 +687,7 @@ def synchronize(ClientSocket):
         print("finish synchronize")
 
 def del_tx_from_address_index(block: Block, blockHeight: int):
+
     transList = block.BlockBody.transList
     for trans in transList:
         for input in trans.inputList:
@@ -728,7 +742,7 @@ if __name__ == "__main__":
                 data = transmitData('submitblock', [new_block.toJSON()])
                 ClientSocket.sendall(data.encode())
         
-        if now_time - last_synchronize_time > 30:
+        if now_time - last_synchronize_time > 5:
             synchronize(ClientSocket)
             last_synchronize_time = now_time
         
