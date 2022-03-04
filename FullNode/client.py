@@ -231,10 +231,14 @@ def writeTrans(tran_hash: str, blockHeight: int, idx: int):
     mydb[a[collection_index]].insert_one(record)
 
 def getUTXO(tran_hash: str, idx: int):
-    transaction = getTrans(tran_hash)
-    UTXOutput = transaction.outputList[idx]
+    UTXO_index_info = get_UTXO_index_info_parallel(tran_hash, idx)
+    block = getblock(UTXO_index_info['blockHeight'])
 
-    return UTXOutput
+    for trans in block.BlockBody.transList:
+        if trans.hash == tran_hash:
+            return trans.outputList[idx]
+
+    return None
 
 def deleteUTXO_parallel(tran_hash: str, idx: int):
     a = ['Chainstate0', 'Chainstate1', 'Chainstate2', 'Chainstate3']
@@ -573,7 +577,7 @@ def isGenesisBlockExist():
 
 def connectPeer():
     ClientSocket = socket.socket()
-    host = '127.0.0.1'
+    host = '192.168.11.130'
     port = 12345
     while True:
         print('Trying to connection')
@@ -662,7 +666,32 @@ def synchronize(ClientSocket):
                 writeblock(block, i)
                 update_blockchain_info(i, block.hash, block.BlockHeader.targetDiff)
         
-        print("finish synchronize")    
+        print("finish synchronize")
+
+def add_tx_to_address_index(trans: Transaction, blockHeight: int):
+    for input in trans.inputList:
+        address = pubkey_to_address(input.publicKey)
+
+        result = mydb['UserAddress'].find_one({"_id": address})
+        if result == None:
+            result = {
+                "_id": address,
+                "tx": 1
+            }
+
+
+
+
+    mydb['UserAddress'].update_one({'_id':3})
+    pass
+
+def update_user_address_index(block: Block, blockHeight: int):
+    transList = block.BlockBody.transList
+    
+    for trans in transList:
+
+        pass
+    pass
 
 if __name__ == "__main__":
     p = Pool(processes=2)

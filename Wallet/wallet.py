@@ -15,7 +15,7 @@ wallet_path = os.path.join(root_path, 'wallets')
 
 
 ClientSocket = socket.socket()
-host = '127.0.0.1'
+host = '192.168.11.115'
 port = 12345
 
 current_wallet = {}

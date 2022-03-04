@@ -329,10 +329,14 @@ def writeTrans(tran_hash: str, blockHeight: int, idx: int):
     mydb[a[collection_index]].insert_one(record)
 
 def getUTXO(tran_hash: str, idx: int):
-    transaction = getTrans(tran_hash)
-    UTXOutput = transaction.outputList[idx]
+    UTXO_index_info = get_UTXO_index_info_parallel(tran_hash, idx)
+    block = getblock(UTXO_index_info['blockHeight'])
 
-    return UTXOutput
+    for trans in block.BlockBody.transList:
+        if trans.hash == tran_hash:
+            return trans.outputList[idx]
+
+    return None
 
 def deleteUTXO_parallel(tran_hash: str, idx: int):
     a = ['Chainstate0', 'Chainstate1', 'Chainstate2', 'Chainstate3']
@@ -706,7 +710,7 @@ def isGenesisBlockExist():
 
 if __name__ == "__main__":
     ServerSocket = socket.socket()
-    host = '127.0.0.1'
+    host = '192.168.11.115'
     port = 12345
     ThreadCount = 0
     try:
