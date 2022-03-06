@@ -12,18 +12,20 @@ from multiprocessing import Pool, Process
 from bson import ObjectId
 
 
+
+
 def threaded_client(connection):
     while True:
         data = connection.recv(65536)
-        print("========WTF=========")
+        # print("========WTF=========")
         # print("data: ", data)
-        print("size of data: ", sys.getsizeof(data))
+        # print("size of data: ", sys.getsizeof(data))
         if not data:
             break
 
         data_decode = json.loads(data.decode())
         # print("data_decode: ", data_decode)
-        print("size of data decode: ", sys.getsizeof(data_decode))
+        # print("size of data decode: ", sys.getsizeof(data_decode))
         
         # data_decode =
         # {
@@ -33,31 +35,39 @@ def threaded_client(connection):
 
         task = data_decode['task']
         # print(task)
+        if task == 'ping':
+            connection.sendall('ping'.encode())
 
-        if task == 'getblock':
+        elif task == 'getblock':
             blockHeight = data_decode['param'][0]
             block = getblock(blockHeight)
-            connection.sendall(json.dumps(block).encode())
+            connection.sendall(json.dumps(block.toJSON()).encode())
 
         elif task == 'getblockheader':
             blockHeight = data_decode['param'][0]
             blockheader = getblockheader(blockHeight)
-            connection.sendall(json.dumps(blockheader).encode())
+            connection.sendall(json.dumps(blockheader.toJSON()).encode())
 
         elif task == 'gettransaction':
-            tran_hash = data_decode['param'][0]
-            transaction = getTrans(tran_hash)
-            connection.sendall(json.dumps(transaction).encode())
+            trans_hash = data_decode['param'][0]
+            transaction = getTrans(trans_hash)
+            connection.sendall(json.dumps(transaction.toJSON()).encode())
 
-        elif task == "gettransactioninfo":
-            tran_hash = data_decode['param'][0]
-            transaction = getTransInfo(tran_hash)
-            connection.sendall(json.dumps(transaction).encode())
+        elif task == "getTransInfo":
+            trans_hash = data_decode['param'][0]
+            transaction_info = getTransInfo(trans_hash)
+            print(transaction_info)
+            connection.sendall(json.dumps(transaction_info).encode())
+        
+        elif task == 'getTransOutput':
+            trans_hash, idx = data_decode['param']
+            trans_output = getTransOutput(trans_hash, idx)
+            connection.sendall(json.dumps(trans_output.toJSON()).encode())
         
         elif task == 'getUTXO':
-            tran_hash, idx = data_decode['param']
-            UTXOutput = getUTXO(tran_hash, idx)
-            connection.sendall(json.dumps(UTXOutput).encode())
+            trans_hash, idx = data_decode['param']
+            UTXOutput = getUTXO(trans_hash, idx)
+            connection.sendall(json.dumps(UTXOutput.toJSON()).encode())
 
         elif task == 'getblockchaininfo':
             blockchain_info = get_blockchain_info()
@@ -66,6 +76,11 @@ def threaded_client(connection):
         elif task =='getaddressUTXO':
             address = data_decode['param'][0]
             result = get_addr_UTXO_parallel(address)
+            connection.sendall(json.dumps(result).encode())
+
+        elif task == 'getaddressTransactions':
+            list_address = data_decode['param'][0]
+            result = get_addr_trans_parallel(list_address)
             connection.sendall(json.dumps(result).encode())
 
         elif task == "getlistblockheaders":
@@ -83,7 +98,7 @@ def threaded_client(connection):
                 if blockchain_info: 
                     if block.BlockHeader.prevHash == blockchain_info['bestBlockHash']:
                         writeblock(block, blockchain_info['height'] + 1)
-                        update_user_address_index(block, blockchain_info['height'] + 1)
+                        add_tx_to_address_index(block, blockchain_info['height'] + 1)
                         update_blockchain_info(blockchain_info['height'] + 1, block.hash, block.BlockHeader.targetDiff)
 
         elif task =='submittransaction':
@@ -145,6 +160,8 @@ def update_blockchain_info(new_height, block_hash, targetDiff):
 def getBlockCluster(blockHeight):
     return blockHeight // 100
 
+
+
 def get_UTXO_index_info_parallel(tran_hash: str, idx: int):
     a = ['Chainstate0', 'Chainstate1', 'Chainstate2', 'Chainstate3']
 
@@ -165,8 +182,6 @@ def get_tran_index_info_parallel(tran_hash: str):
     for x in p.starmap(get_tran_index_info, zip(a, repeat(tran_hash))):
         if x != None:
             result = x
-    
-    
     return result
 
 def get_tran_index_info(collection_name: str, tran_hash: str):
@@ -185,6 +200,39 @@ def get_addr_UTXO(collection_name: str, address: str):
     cursor =  mydb[collection_name].find({"address" : address})
     for record in cursor:
         result.append(record)
+    return result
+
+def get_addr_trans_parallel(list_address):
+    # print(list_address)
+    result = list(reduce(lambda x,y : x + y, p.map(get_addr_trans, list_address), []))
+
+    #remove duplicate
+    result = [json.dumps(x) for x in result]
+    result = list(set(result))
+    result = [json.loads(x) for x in result]
+
+    return result
+
+def get_addr_trans(address):
+    addr_trans_index = mydb['UserAddress'].find_one({'_id': address})
+    # {
+    #   _id: ...,
+    #   list_trans: [{trans_hash, blockHeight}, ...]
+    # }
+
+    result = []
+    if addr_trans_index == None:
+        return result
+    
+    for each in addr_trans_index['list_trans']:
+        trans_hash = each['trans_hash']
+        blockHeight = each['blockHeight']
+        
+        block = getblock(blockHeight)
+        for trans in block.BlockBody.transList:
+            if trans.hash == trans_hash:
+                result.append(trans.toJSONwithSignature())
+                break
     return result
 
 def getblock(blockHeight: int) -> Block: 
@@ -287,18 +335,29 @@ def getTrans(tran_hash: str) -> Transaction:
 
     return transaction
 
+def getTransOutput(trans_hash: str, idx: int) -> TransactionOutput:
+    trans = getTrans(trans_hash)
+    return trans.outputList[idx]
+
 def getTransInfo(tran_hash: str):
     trans_json = mydb['Mempool'].find_one({"_id": tran_hash})
 
+
     if trans_json:
+        trans = Transaction.from_json(trans_json)
         trans_json['confirmation'] = -1
+        trans_json['fee'] = get_trans_fee(trans)
         return trans_json
 
     trans_index_info = get_tran_index_info_parallel(tran_hash)
-    blockchain_info = get_blockchain_info()
+    if not trans_index_info:
+        return None
 
-    trans_json = getTrans(tran_hash).toJSONwithSignature()
-    trans_json['confirmation'] =  blockchain_info['height'] - trans_index_info['height']
+    trans = getTrans(tran_hash)
+    trans_json = trans.toJSONwithSignature()
+    blockchain_info = get_blockchain_info()
+    trans_json['confirmation'] =  blockchain_info['height'] - trans_index_info['blockHeight']
+    trans_json['fee'] = get_trans_fee(trans)
     return trans_json
 
 
@@ -331,7 +390,7 @@ def writeTrans(tran_hash: str, blockHeight: int, idx: int):
     
     mydb[a[collection_index]].insert_one(record)
 
-def getUTXO(tran_hash: str, idx: int):
+def getUTXO(tran_hash: str, idx: int) -> TransactionOutput:
     UTXO_index_info = get_UTXO_index_info_parallel(tran_hash, idx)
     block = getblock(UTXO_index_info['blockHeight'])
 
@@ -592,7 +651,7 @@ def genesis_block():
     print("target Difficulty: ", bits_to_target(block.BlockHeader.targetDiff))
 
     writeblock(block, 0)
-    update_user_address_index(block, 0)
+    add_tx_to_address_index(block, 0)
     update_blockchain_info(0, block.hash, block.BlockHeader.targetDiff)
 
 def get_fee(list_trans: list):
@@ -608,6 +667,17 @@ def get_fee(list_trans: list):
     
     return inputAmount - outputAmount
 
+def get_trans_fee(trans: Transaction):
+    inputAmount = 0
+    for input_idx, input in enumerate(trans.inputList):
+        trans_output = getTransOutput(input.txid, input.idx) 
+        inputAmount += trans_output.amount
+
+    outputAmount = 0
+    for output_idx, output in enumerate(trans.outputList):
+        outputAmount += output.amount
+        
+    return inputAmount - outputAmount
 
 def create_new_block(list_trans: list):
     blockchain_info = get_blockchain_info()
@@ -710,39 +780,35 @@ def isGenesisBlockExist():
             
 #         time.sleep(5)
 
-def add_tx_to_address_index(trans: Transaction, blockHeight: int):
-    for input in trans.inputList:
-        address = pubkey_to_address(input.publicKey)
-
-        result = mydb['UserAddress'].find_one({"_id": address})
-        if result == None:
-            result = {
-                "_id": address,
-                "list_trans": [{
-                    'trans_hash': trans.hash,
-                    'blockHeight': blockHeight
-                }]
-            }
-        else:
-            result['list_trans'].append({
-                'trans_hash': trans.hash,
-                'blockHeight': blockHeight
-            })
-
-        mydb['UserAddress'].update_one({"_id": address}, {"$set": {"list_trans": result['list_trans']}}, upsert=True)
-
-def update_user_address_index(block: Block, blockHeight: int):
+def add_tx_to_address_index(block: Block, blockHeight: int):
     transList = block.BlockBody.transList
     for trans in transList:
-        add_tx_to_address_index(trans, blockHeight)
+        for input in trans.inputList:
+            address = pubkey_to_address(input.publicKey)
 
+            result = mydb['UserAddress'].find_one({"_id": address})
+            if result == None:
+                result = {
+                    "_id": address,
+                    "list_trans": [{
+                        'trans_hash': trans.hash,
+                        'blockHeight': blockHeight
+                    }]
+                }
+            else:
+                result['list_trans'].append({
+                    'trans_hash': trans.hash,
+                    'blockHeight': blockHeight
+                })
+
+            mydb['UserAddress'].update_one({"_id": address}, {"$set": {"list_trans": result['list_trans']}}, upsert=True)
     
 
 
 
 if __name__ == "__main__":
     ServerSocket = socket.socket()
-    host = '192.168.1.9'
+    host = '26.49.190.114'
     port = 12345
     ThreadCount = 0
     try:

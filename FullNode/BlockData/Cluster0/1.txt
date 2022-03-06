@@ -1,0 +1,48 @@
+{
+    "header": {
+        "version": 1, 
+        "prevHash": "000063c52e661b7ea97a708e84af4c47466ff1adac642dbb45ec8f88ff4a1a94", 
+        "merkleRoot": "efb9ed0794b52491680fdd2b258f983484db73f13a97fe13bb863e6ea126610c", 
+        "timeStamp": 1646493563.8345394, 
+        "targetDiff": 520159231, 
+        "nonce": 33079
+    }, 
+    "body": {
+        "transactions": [
+            {
+                "txin": [], 
+                "txout": [
+                    {
+                        "amount": 26, 
+                        "recvAddress": "1L2DhfDNRyK2KLwX9PU4YWaevRmiT5sgHM", 
+                        "script_type": "P2PKH"
+                    }
+                ], 
+                "time": 1646493563.8345394
+            }, 
+            {
+                "txin": [
+                    {
+                        "txid": "7e64e487ab36bee83db6ac682da01ffac6ac63dacd49011cdf062bbc759234a1", 
+                        "idx": 0, 
+                        "publicKey": "03e1ccfbae077e198f27086c943642a2cdfc03b861c45635b79e8fddc7c7e3027d", 
+                        "signature": "9017edbc796a613793067c5841e26d3b323567b15993f87db65d017f479aacde273cac8d9c39b44199122cad05ad18e86de2cbdd69850c57693abe0cec0ff1b7"
+                    }
+                ], 
+                "txout": [
+                    {
+                        "amount": 123, 
+                        "recvAddress": "16ntcjNX3Y3q8SKw3G3WFiQhygti2Ci6iw", 
+                        "script_type": "P2PKH"
+                    }, 
+                    {
+                        "amount": 99876, 
+                        "recvAddress": "122ASiQw9LRSdW1dd2WLa8aNvi4rE41RBE", 
+                        "script_type": "P2PKH"
+                    }
+                ], 
+                "time": 1646493561.2826455
+            }
+        ]
+    }
+}

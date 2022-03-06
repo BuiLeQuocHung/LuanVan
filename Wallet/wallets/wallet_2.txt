@@ -1,0 +1,18 @@
+{
+    "addresses": [
+        "13M9T7qp3C1yJyBuyXDwwtn51eBD1s4zTo", 
+        "1MWX8mwJmDKf94jFfo9pdaktrzipoWQR8Z", 
+        "195uBp7Prmjf46UPnFnmLcxBwWcCtWXRDM", 
+        "1AkHMxmFG5Cwge6ASuwukF4BcsgvqPcn3U", 
+        "1DWM4atqmNkFmF16PgDiza3g1N7N7HqmTj", 
+        "15zvHZMDwNRRCa2bCmmU35fZzQ5kVu6mpH", 
+        "19ZuPqZAgpD2CygUfTzhaJxdaNTru8r6hJ", 
+        "1GWCNvYxp2MMdK6gvgNZ3j74mamSVohT4d", 
+        "1AxqArFGXoVYEETNMRLkVd5116H1sM9AEt", 
+        "1Ekyf2DPPP8v2cmt9qQ19Bc4924MgEs1aw"
+    ], 
+    "keystore": {
+        "derivation": "m/0'", 
+        "mnemonic": "injury moon pink zoo snow brief sting dutch zebra since afraid come"
+    }
+}

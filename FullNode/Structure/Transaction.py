@@ -31,7 +31,6 @@ class TransactionInput(BaseTransactionInput):
 
     @staticmethod
     def from_json(input_json):
-        print(input_json)
         txid = input_json['txid']
         idx = input_json['idx']
         publicKey = input_json['publicKey']

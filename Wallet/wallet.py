@@ -1,8 +1,11 @@
+from multiprocessing.connection import Client
 import socket, ecdsa, binascii, base58, time, os, pyperclip, json
+from numpy import size
 from config import *
 from Structure.Block import *
 from bitcoin import *
 from functools import reduce
+from datetime import datetime
 
 import PySimpleGUI as sg
 from hdwallet import HDWallet, utils
@@ -15,7 +18,7 @@ wallet_path = os.path.join(root_path, 'wallets')
 
 
 ClientSocket = socket.socket()
-host = '192.168.11.1.9'
+host = '26.49.190.114'
 port = 12345
 
 current_wallet = {}
@@ -38,6 +41,19 @@ except socket.error as e:
 # address = "1Ap4JgMR3pCvNfFZ6z6FMoq9zprSSWPZfQ"
 # pubkeyScript = "OP_DUP OP_HASH {} OP_EQUALVERIFY OP_CHECKSIG".format(address)
 
+# def receiveAll(ClientSocket: socket.socket, n: int):
+#     data = bytearray()
+#     ClientSocket.settimeout(2)
+#     while len(data) < n:
+#         try:
+#             packet = ClientSocket.recv(65536)
+#             data.extend(packet)
+#         except:
+#             break
+#         # if not packet:
+#         #     return None
+        
+#     return bytes(data)
 
 
 def create_output_window():
@@ -67,9 +83,8 @@ def create_output_window():
 
 def get_addr_UTXO(address) -> list:
     data = transmitData('getaddressUTXO', [address])
-    ClientSocket.send(data.encode())
-    result =  json.loads(ClientSocket.recv(65536).decode()) # list of record
-    print(sys.getsizeof(result))
+    ClientSocket.sendall(data.encode())
+    result =  json.loads(ClientSocket.recv(1048576).decode())
     return result
 
 def get_balance(address):
@@ -97,7 +112,7 @@ def validateAddress(address):
 def submitTransaction(tran: Transaction):
     print(tran.toJSONwithSignature())
     data = transmitData('submittransaction', [tran.toJSONwithSignature()])
-    ClientSocket.send(data.encode())
+    ClientSocket.sendall(data.encode())
 
 def validateAmountSpend(amount, fee, balance):
     if amount + fee > balance:
@@ -159,7 +174,7 @@ def get_correspond_privatekey(public_key: str):
     master_hdwallet = generate_hd_wallet(current_wallet['data']['keystore']['mnemonic'])
     derivation = current_wallet['data']['keystore']['derivation']
 
-    for i in range(10):
+    for i in range(len(current_wallet['data']['addresses'])):
         if generate_compress_publickey(master_hdwallet, derivation + f"/{i}'") == public_key:
             private_key = generate_private_key(master_hdwallet, derivation + f"/{i}'")
             return private_key
@@ -367,6 +382,35 @@ def update_address_balance():
     
     return result, wallet_balance
 
+def get_wallet_trans_history():
+    list_address = current_wallet['data']['addresses']
+    data = transmitData('getaddressTransactions', [list_address])
+
+    ClientSocket.sendall(data.encode())
+    result = json.loads(ClientSocket.recv(1048675).decode())
+    
+    return result #list trans_json no signature
+
+def trans_history_summary_info(list_trans_json):
+    result = []
+    list_address = current_wallet['data']['addresses']
+
+    for trans_json in list_trans_json:
+        trans = Transaction.from_json(trans_json)
+        send_amount = 0
+        for trans_output in trans.outputList:
+            if trans_output.recvAddress not in list_address:
+                send_amount += trans_output.amount
+        
+        trans_date = datetime.fromtimestamp(trans.time)
+        result.append( [trans_date, trans.hash, send_amount] )
+    
+    result.sort(key= lambda x: x[0], reverse= True)
+    for each in result:
+        each[0] = each[0].strftime('%d-%m-%y')
+
+    return result
+
 def wallet_info_window():
     wallet_name = current_wallet['wallet_name']
     mnemonic = current_wallet['data']['keystore']['mnemonic']
@@ -386,12 +430,64 @@ def wallet_info_window():
         if event in (None, 'Exit', 'Cancel'):
             break
 
+def get_trans_info(trans_hash):
+    data = transmitData('getTransInfo', [trans_hash])
+    ClientSocket.sendall(data.encode())
+    trans_info_json = json.loads(ClientSocket.recv(1048576).decode())
+    return trans_info_json
+
+def show_trans_detail(trans_hash):
+    print('here')
+    trans_info_json = get_trans_info(trans_hash)
+    print(trans_info_json)
+    trans = Transaction.from_json(trans_info_json)
+    
+    confirmation = trans_info_json['confirmation']
+    fee = trans_info_json['fee']
+
+    outputs = [[each.recvAddress, each.amount] for each in trans.outputList]
+
+    trans_detail_layout = [
+        [sg.Text('Txid: {}'.format(trans_hash))],
+        [sg.Text('Fee: {}'.format(fee))],
+        [sg.Text('Confirmation: {}'.format(confirmation))],
+
+        [sg.Text('Output:')],
+        [sg.Table(outputs, ['receiver', 'amount'],  max_col_width=55,
+                    auto_size_columns=True, justification='left', 
+                    num_rows=5, key="-TRANS-OUTPUTS-TABLE-",
+                    expand_x=True)]
+    ]
+
+    window = sg.Window('Transaction', trans_detail_layout)
+    while True:
+        event, values = window.read()
+        print(event, values) #debug
+        if event in (None, 'Exit', 'Cancel'):
+            break
+
 def main_window():
     list_output = []
     address_balance_list, wallet_balance = update_address_balance()
+
+    global list_trans_json
+    list_trans_json = get_wallet_trans_history()
+    history_info = trans_history_summary_info(list_trans_json)
+    
     
 
     menu_def = [['File', ['Recently Open', 'Open', 'New','Close']] , ['Wallet',['Infomation']]]
+
+    history_layout = [
+        [sg.Table(history_info, headings=['date', 'txid', 'send amount'], max_col_width=55,
+                    auto_size_columns=True, justification='left', 
+                    num_rows=5, key="-HISTORY-TABLE-",
+                    expand_x=True, expand_y=True,
+                    right_click_menu=['Right', ['Details']],
+                    right_click_selects=True
+        )],
+        [sg.Button('Refresh', key='-REFRESH-HISTORY-TABLE-')]
+    ]
 
     address_layout = [
         [sg.Table(address_balance_list, headings=['address', 'balance'], max_col_width=35,
@@ -399,7 +495,7 @@ def main_window():
                     num_rows=5, key="-ADDRESS-TABLE-",
                     expand_x=True, expand_y=True
         )],
-        [sg.Button('Refresh', key='-REFRESH-')]
+        [sg.Button('Refresh', key='-REFRESH-ADDR-TABLE-')]
     ]
 
     send_layout = [
@@ -419,7 +515,8 @@ def main_window():
         [sg.Menu(menu_def)],
         [sg.TabGroup([
             [sg.Tab("Address", address_layout)],
-            [sg.Tab("Send", send_layout)]
+            [sg.Tab("Send", send_layout)],
+            [sg.Tab("History", history_layout)]
         ], tab_background_color='grey', selected_background_color='white', selected_title_color='black')],
         [sg.Text('Balance'), sg.Input(wallet_balance, readonly=True, key='-WALLET-BALANCE-')]
     ]
@@ -462,10 +559,22 @@ def main_window():
         elif event == "Infomation":
             wallet_info_window()
         
-        elif event == '-REFRESH-':
+        elif event == '-REFRESH-ADDR-TABLE-':
             address_balance_list, wallet_balance = update_address_balance()
             window["-ADDRESS-TABLE-"].update(address_balance_list)
             window['-WALLET-BALANCE-'].update(wallet_balance)
+
+        elif event == '-REFRESH-HISTORY-TABLE-':
+            list_trans_json = get_wallet_trans_history()
+            history_info = trans_history_summary_info(list_trans_json)
+            window['-HISTORY-TABLE-'].update(history_info)
+        
+        elif event == 'Details':
+            row = int( values["-HISTORY-TABLE-"][0])
+            trans_hash = history_info[row][1]
+            print('row: ', row, 'trans_hash: ', trans_hash)
+            show_trans_detail(trans_hash)
+
 
 def main():
     result = wallet_window()

@@ -34,7 +34,6 @@ class BlockHeader:
 
     @staticmethod
     def from_json(header_json):
-        print(header_json)
         version = header_json["version"]
         prevHash = header_json["prevHash"]
         merkleRoot = header_json["merkleRoot"]

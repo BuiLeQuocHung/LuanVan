@@ -13,9 +13,19 @@ from multiprocessing import Pool
 from bson import ObjectId
 
 
+# def receiveAll(ClientSocket: socket.socket, n: int):
+#     data = bytearray()
+#     while len(data) < n:
+#         packet = ClientSocket.recv(n - len(data))
+#         # if not packet:
+#         #     return None
+#         data.extend(packet)
+#     return data
 
 def trans_to_mempool(trans: Transaction):
-    mydb['Mempool'].insert_one(trans.toJSONwithSignature())
+    trans_json = trans.toJSONwithSignature()
+    trans_json['_id'] = trans.hash
+    mydb['Mempool'].insert_one(trans_json)
 
 def count_record(collection_name: str):
     return mydb[collection_name].count_documents({})
@@ -448,6 +458,7 @@ def find_nonce(version, prevHash, merkleRoot, timeStamp, targetDiff):
     hash_value = hash(version, prevHash, merkleRoot, timeStamp, targetDiff, nonce)
     while not check_proof_of_work(hash_value, targetDiff):
         nonce += 1
+        print("nonce: ", nonce)
         hash_value = hash(version, prevHash, merkleRoot, timeStamp, targetDiff, nonce)
     
     # print(str({
@@ -593,18 +604,27 @@ def isGenesisBlockExist():
 
 def connectPeer():
     ClientSocket = socket.socket()
-    host = '192.168.1.9'
+    host = '26.202.89.163'
     port = 12345
-    while True:
-        print('Trying to connection')
-        try:
-            ClientSocket.connect((host, port))
-            break
-        except socket.error as e:
-            print("server is not online")
-        time.sleep(5)
-    return ClientSocket
 
+    print('Trying to connect')
+    try:
+        ClientSocket.connect((host, port))
+        return ClientSocket
+    except socket.error as e:
+        print("server is not online")
+        return None
+
+def checkIsConnected(ClientSocket: socket.socket):
+    data = transmitData('ping', [])
+    ClientSocket.sendall(data.encode())
+    ClientSocket.settimeout(5)
+
+    try:
+        ClientSocket.recv(65536)
+        return True
+    except socket.timeout:
+        return False
 
 def is_mempool_empty():
     return mydb['Mempool'].count_documents({}) == 0
@@ -634,7 +654,7 @@ def mining() -> Block:
         
         print("new block mine successfuly")
         return new_block
-
+    return None
 
 def synchronize(ClientSocket):
     data = transmitData('getblockchaininfo', [])
@@ -733,23 +753,37 @@ def add_tx_to_address_index(block: Block, blockHeight: int):
 
 if __name__ == "__main__":
     p = Pool(processes=2)
-    ClientSocket = connectPeer()
+
+    isConnected = False
 
     start_time = time.time()
-    last_mining_time = start_time
-    last_synchronize_time = start_time
+
+    last_mining_time = 0
+    last_synchronize_time = 0
+    last_trying_to_connect_time = 0
 
     while True:
         now_time = time.time()
+        
+        if isConnected == False and now_time - last_trying_to_connect_time > 15:
+            ClientSocket = connectPeer()
+            if ClientSocket != None:
+                isConnected = True
+            else:
+                isConnected = False
+        
+        if isConnected:
+            isConnected = checkIsConnected(ClientSocket)
+
         if now_time - last_mining_time > 5:
             new_block = mining()
             last_mining_time = now_time
         
-            if new_block:
+            if new_block and isConnected:
                 data = transmitData('submitblock', [new_block.toJSON()])
                 ClientSocket.sendall(data.encode())
         
-        if now_time - last_synchronize_time > 5:
+        if now_time - last_synchronize_time > 10 and isConnected:
             synchronize(ClientSocket)
             last_synchronize_time = now_time
         
