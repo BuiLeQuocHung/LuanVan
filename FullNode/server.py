@@ -346,7 +346,7 @@ def getTransInfo(tran_hash: str):
     if trans_json:
         trans = Transaction.from_json(trans_json)
         trans_json['confirmation'] = -1
-        trans_json['fee'] = get_trans_fee(trans)
+        trans_json['inputAmount'] = get_trans_input_amount(trans)
         return trans_json
 
     trans_index_info = get_tran_index_info_parallel(tran_hash)
@@ -357,7 +357,7 @@ def getTransInfo(tran_hash: str):
     trans_json = trans.toJSONwithSignature()
     blockchain_info = get_blockchain_info()
     trans_json['confirmation'] =  blockchain_info['height'] - trans_index_info['blockHeight']
-    trans_json['fee'] = get_trans_fee(trans)
+    trans_json['inputAmount'] = get_trans_input_amount(trans)
     return trans_json
 
 
@@ -667,17 +667,13 @@ def get_fee(list_trans: list):
     
     return inputAmount - outputAmount
 
-def get_trans_fee(trans: Transaction):
+def get_trans_input_amount(trans: Transaction):
     inputAmount = 0
     for input_idx, input in enumerate(trans.inputList):
         trans_output = getTransOutput(input.txid, input.idx) 
         inputAmount += trans_output.amount
-
-    outputAmount = 0
-    for output_idx, output in enumerate(trans.outputList):
-        outputAmount += output.amount
         
-    return inputAmount - outputAmount
+    return inputAmount
 
 def create_new_block(list_trans: list):
     blockchain_info = get_blockchain_info()

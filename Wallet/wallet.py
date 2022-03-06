@@ -436,23 +436,39 @@ def get_trans_info(trans_hash):
     trans_info_json = json.loads(ClientSocket.recv(1048576).decode())
     return trans_info_json
 
+def get_output_amount(trans: Transaction):
+    amount = 0
+    for output in trans.outputList:
+        amount += output.amount
+    
+    return amount
+
 def show_trans_detail(trans_hash):
-    print('here')
     trans_info_json = get_trans_info(trans_hash)
-    print(trans_info_json)
     trans = Transaction.from_json(trans_info_json)
     
     confirmation = trans_info_json['confirmation']
-    fee = trans_info_json['fee']
+    if confirmation == -1:
+        confirmation = 'mempool'
 
+    inputAmount = trans_info_json['inputAmount']
+    outputAmount = get_output_amount(trans)
+
+    inputs = [[each.txid, each.idx] for each in trans.inputList]
     outputs = [[each.recvAddress, each.amount] for each in trans.outputList]
 
     trans_detail_layout = [
         [sg.Text('Txid: {}'.format(trans_hash))],
-        [sg.Text('Fee: {}'.format(fee))],
+        [sg.Text('Fee: {}'.format(inputAmount - outputAmount))],
         [sg.Text('Confirmation: {}'.format(confirmation))],
 
-        [sg.Text('Output:')],
+        [sg.Text('Input: {}'.format(inputAmount))],
+        [sg.Table(inputs, ['txid', 'idx'],  max_col_width=55,
+                    auto_size_columns=True, justification='left', 
+                    num_rows=5, key="-TRANS-INPUTS-TABLE-",
+                    expand_x=True)],
+
+        [sg.Text('Output: {}'.format(outputAmount))],
         [sg.Table(outputs, ['receiver', 'amount'],  max_col_width=55,
                     auto_size_columns=True, justification='left', 
                     num_rows=5, key="-TRANS-OUTPUTS-TABLE-",
