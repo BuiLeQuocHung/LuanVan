@@ -188,12 +188,12 @@ def deleteBlock(blockHeight: int):
             deleteUTXO_parallel(tran.hash, output_idx)
 
         for input_idx, input in enumerate(tran.inputList):
-            UTXOutput = getUTXO(input.txid, input_idx)
+            UTXOutput = getTransOutput(input.txid, input_idx)
             writeUTXO(UTXOutput, input.txid, input_idx, blockHeight)
 
-        deleteTrans(tran.hash)
+        deleteTrans_parallel(tran.hash)
     
-    deleteBlockIndex(block.hash())
+    deleteBlockIndex(block.hash)
 
     os.remove(blockPath)
 
@@ -211,6 +211,10 @@ def getTrans(tran_hash: str):
     transaction = block.BlockBody.transList[idx]
 
     return transaction
+
+def getTransOutput(trans_hash: str, idx: int) -> TransactionOutput:
+    trans = getTrans(trans_hash)
+    return trans.outputList[idx]
 
 def deleteTrans_parallel(tran_hash):
     a = ['Transaction0', 'Transaction1', 'Transaction2', 'Transaction3']
@@ -771,6 +775,7 @@ if __name__ == "__main__":
                 isConnected = True
             else:
                 isConnected = False
+            last_trying_to_connect_time = now_time
         
         if isConnected:
             isConnected = checkIsConnected(ClientSocket)
