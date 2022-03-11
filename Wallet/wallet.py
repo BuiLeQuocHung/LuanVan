@@ -1,17 +1,18 @@
-from multiprocessing.connection import Client
-import socket, ecdsa, binascii, base58, time, os, pyperclip, json
-from numpy import size
+import random
+import socket, ed25519, binascii, base58, time as time_, os, pyperclip, json
 from config import *
 from Structure.Block import *
-from bitcoin import *
-from functools import reduce
 from datetime import datetime
 
-import PySimpleGUI as sg
-from hdwallet import HDWallet, utils
-from hdwallet.utils import generate_entropy
-from hdwallet.symbols import BTC as SYMBOL
 
+import PySimpleGUI as sg
+from py_crypto_hd_wallet import HdWalletBip44Coins, HdWalletBipWordsNum, HdWalletBipLanguages,\
+ HdWalletBipFactory, HdWalletBipDataTypes, HdWalletBipKeyTypes, HdWalletBipChanges
+
+
+from hdwallet import  utils
+# from hdwallet.utils import generate_entropy
+# from hdwallet.symbols import BTC as SYMBOL
 
 
 wallet_path = os.path.join(root_path, 'wallets')
@@ -21,39 +22,13 @@ ClientSocket = socket.socket()
 host = '26.49.190.114'
 port = 12345
 
-current_wallet = {}
+current_wallet = None
 
 print('Waiting for connection')
 try:
     ClientSocket.connect((host, port))
 except socket.error as e:
     print(str(e))
-
-# private_key = "18E14A7B6A307F426A94F8114701E7C8E774E7F9A47E2C2035DB29A206321725"
-# public_key = "0450863ad64a87ae8a2fe83c1af1a8403cb53f53e486d8511dad8a04887e5b23522cd470243453a299fa9e77237716103abc11a1df38855ed6f2ee187e9c582ba6"
-# compressed_public_key = "0250863ad64a87ae8a2fe83c1af1a8403cb53f53e486d8511dad8a04887e5b2352"
-# address = "16UwLL9Risc3QfPqBUvKofHmBQ7wMtjvM"
-# pubkeyScript = "OP_DUP OP_HASH {} OP_EQUALVERIFY OP_CHECKSIG".format(address)
-
-# private_key = "8EA7C27775BAADEE8CC4F0671C431D0399A4BD5D5F52BC15708AD4EDBD456EEF"
-# public_key = "04A5B3B2DB2EB52C6481B791F7ABDED1A85F29810A3BB93C0E58AC36595C690BF7ADF9472E4A9AB86148427CB44A564618BEE2209890BB4269A3E9738F8F571CCD"
-# compressed_public_key = "03a5b3b2db2eb52c6481b791f7abded1a85f29810a3bb93c0e58ac36595c690bf7"
-# address = "1Ap4JgMR3pCvNfFZ6z6FMoq9zprSSWPZfQ"
-# pubkeyScript = "OP_DUP OP_HASH {} OP_EQUALVERIFY OP_CHECKSIG".format(address)
-
-# def receiveAll(ClientSocket: socket.socket, n: int):
-#     data = bytearray()
-#     ClientSocket.settimeout(2)
-#     while len(data) < n:
-#         try:
-#             packet = ClientSocket.recv(65536)
-#             data.extend(packet)
-#         except:
-#             break
-#         # if not packet:
-#         #     return None
-        
-#     return bytes(data)
 
 
 def create_output_window():
@@ -94,20 +69,34 @@ def get_balance(address):
         balance += each['amount']
     return balance
 
+def pubkey_to_address(pubkey: str):
+    hash1 = hashlib.sha256(pubkey.encode()).hexdigest()
+    hash2 = hashlib.new('ripemd160', hash1.encode()).hexdigest()
+
+    hash3 = hashlib.sha256(hash2.encode()).hexdigest()
+    hash4 = hashlib.sha256(hash3.encode()).hexdigest()
+
+    #first 4 bytes of hash4
+    checksum = hash4[:8]
+
+    result = hash2 + checksum
+
+    return base58.b58encode(binascii.unhexlify(result)).decode()
+
 def validateAddress(address):
-    base58Decoder = base58.b58decode(address).hex()
+    addr_decode = base58.b58decode(address).hex()
 
-    prefixAndHash = base58Decoder[:len(base58Decoder)-8]
-    checksum = base58Decoder[len(base58Decoder)-8:]
 
-    hash = prefixAndHash
-    for x in range(1,3):
-        hash = hashlib.sha256(binascii.unhexlify(hash)).hexdigest()
+    hash = addr_decode[:len(addr_decode) - 8]
 
-    if(checksum == hash[:8]):
+    checksum = addr_decode[len(addr_decode) - 8:]
+
+    for i in range(2):
+        hash = hashlib.sha256(hash.encode()).hexdigest()
+
+    if hash[:8] == checksum:
         return True
-    else:
-        return False
+    return False
 
 def submitTransaction(tran: Transaction):
     print(tran.toJSONwithSignature())
@@ -129,21 +118,23 @@ def createTransaction(fee, outputList: list ):
     
     outputList = list(map(lambda x: TransactionOutput(x[1], x[0]), outputList))
 
-    master_hdwallet = generate_hd_wallet(current_wallet['data']['keystore']['mnemonic'])
-    derivation = current_wallet['data']['keystore']['derivation']
-
     inputList = []
     totalInputAmount = 0
     
-    for address_idx, address in enumerate(current_wallet['data']['addresses']):
+    for key, value in current_wallet.GetData(HdWalletBipDataTypes.ADDRESS).ToDict().items():
+        privkey = value['raw_priv']
+        pubkey = value['raw_compr_pub'][2:]
+        address = pubkey_to_address(pubkey)
+
         address_UTXOs_info = get_addr_UTXO(address)
-        related_compress_publickey = generate_compress_publickey(master_hdwallet, derivation + f"/{address_idx}'")
+        print('address: ', address)
+        print('address UTXO info: ', address_UTXOs_info)
         
         for UTXO_info in address_UTXOs_info:
             txid, idx = UTXO_info['_id'][:64], int(UTXO_info['_id'][64:])
             inputAmount = UTXO_info['amount']
 
-            newInput = TransactionInput(txid, idx, related_compress_publickey)
+            newInput = TransactionInput(txid, idx, pubkey)
             inputList.append(newInput)
 
             totalInputAmount += inputAmount
@@ -153,31 +144,38 @@ def createTransaction(fee, outputList: list ):
         
         if totalInputAmount > totalOutputAmount + fee:
             break
-    change = totalInputAmount - totalOutputAmount - fee
-    if change > 0:
-        change_output = TransactionOutput(change, current_wallet['data']['addresses'][random.randint(0,9)])
-        outputList.append(change_output)
-    
-    transaction = Transaction(inputList, outputList, time.time())
 
+    print(fee)
+    print(totalInputAmount, totalOutputAmount)
+
+    change = totalInputAmount - totalOutputAmount - fee
+    print(change)
+    if change > 0:
+        addrs_dict = current_wallet.GetData(HdWalletBipDataTypes.ADDRESS).ToDict()
+        random_number = random.randint(0, len(addrs_dict) - 1)
+        addr_dict = addrs_dict['address_{}'.format(random_number)]
+        change_output = TransactionOutput(change, pubkey_to_address(addr_dict['raw_compr_pub'][2:]))
+        outputList.append(change_output)
+
+    print(inputList)
+    print(outputList[0].toJSON())
+    
+    transaction = Transaction( inputList, outputList, int(time_.time()))
     return transaction
 
 def sign_transaction(transaction: Transaction):    
     for input in transaction.inputList:
         private_key = get_correspond_privatekey(input.publicKey)
-        privkeyObject = ecdsa.SigningKey.from_string(binascii.unhexlify(private_key.encode()), curve= ecdsa.SECP256k1, hashfunc=hashlib.sha256)
-        input.signature = privkeyObject.sign_digest(binascii.unhexlify(transaction.hash.encode())).hex()
+        privkeyObject = ed25519.SigningKey(binascii.unhexlify(private_key.encode()))
+        input.signature = privkeyObject.sign(binascii.unhexlify(transaction.hash.encode())).hex()
     
     return transaction
 
 def get_correspond_privatekey(public_key: str):
-    master_hdwallet = generate_hd_wallet(current_wallet['data']['keystore']['mnemonic'])
-    derivation = current_wallet['data']['keystore']['derivation']
-
-    for i in range(len(current_wallet['data']['addresses'])):
-        if generate_compress_publickey(master_hdwallet, derivation + f"/{i}'") == public_key:
-            private_key = generate_private_key(master_hdwallet, derivation + f"/{i}'")
-            return private_key
+    for key, value in current_wallet.GetData(HdWalletBipDataTypes.ADDRESS).ToDict().items():
+        if value['raw_compr_pub'][2:] == public_key:
+            print('corrspond private key: ', value['raw_priv'])
+            return value['raw_priv']
 
 def wallet_window():
     global current_wallet
@@ -213,63 +211,100 @@ def wallet_window():
     return result
 
 def create_new_wallet(wallet_name: str):
-    global current_wallet
+    acc_idx = 0
+    addr_num = 20
+    addr_offset = 0
 
-    STRENGTH: int = 128  
-    LANGUAGE: str = "english" 
-    ENTROPY: str = generate_entropy(strength=STRENGTH)
-    PASSPHRASE: str = None
+    hd_wallet_fact = HdWalletBipFactory(HdWalletBip44Coins.POLKADOT_ED25519_SLIP)
+    hd_wallet = hd_wallet_fact.CreateRandom(wallet_name, HdWalletBipWordsNum.WORDS_NUM_12)
+    hd_wallet.Generate(acc_idx=acc_idx, change_idx=HdWalletBipChanges.CHAIN_EXT, addr_num=addr_num, addr_off=addr_offset)
 
-    master_hdwallet: HDWallet = HDWallet("BTC", use_default_path=False)
-    master_hdwallet.from_entropy(
-        entropy=ENTROPY, language=LANGUAGE, passphrase=PASSPHRASE
-    )
+    mnemonic = hd_wallet.GetData(HdWalletBipDataTypes.MNEMONIC)
+    derivation = "m'/44'/354'"
 
-    mnemonic = master_hdwallet.mnemonic()
+    # global current_wallet
 
-    derivation = "m/0'"
-    addresses = []
-    for i in range(10):
-        new_addr = generate_address(master_hdwallet, derivation + f"/{i}'")
-        addresses.append(new_addr)
+    # STRENGTH: int = 128  
+    # LANGUAGE: str = "english" 
+    # ENTROPY: str = generate_entropy(strength=STRENGTH)
+    # PASSPHRASE: str = None
+
+    # master_hdwallet: HDWallet = HDWallet("BTC", use_default_path=False)
+    # master_hdwallet.from_entropy(
+    #     entropy=ENTROPY, language=LANGUAGE, passphrase=PASSPHRASE
+    # )
+
+    # mnemonic = master_hdwallet.mnemonic()
+
+    # derivation = "m/0'"
+    # addresses = []
+    # for i in range(10):
+    #     new_addr = generate_address(master_hdwallet, derivation + f"/{i}'")
+    #     addresses.append(new_addr)
+    # data = {
+    #     'addresses': addresses,
+    #     'keystore': {
+    #         'derivation': derivation,
+    #         'mnemonic': mnemonic
+    #     }
+    # }
 
     data = {
-        'addresses': addresses,
-        'keystore': {
-            'derivation': derivation,
-            'mnemonic': mnemonic
-        }
+        'mnemonic': mnemonic,
+        'derivation': derivation,
+        'acc_idx': acc_idx,
+        'addr_num': addr_num,
+        'addr_offset': addr_offset,
     }
     save_wallet(wallet_name, data)
-    current_wallet = {
-        'name': wallet_name,
-        'data': data
-    }
+    global current_wallet
+    current_wallet = hd_wallet
 
 def create_wallet_from_menemonic(wallet_name: str, mnemonic: str):
-    global current_wallet
+    acc_idx = 0
+    addr_num = 20
+    addr_offset = 0
 
-    master_hdwallet = HDWallet("BTC")
-    master_hdwallet.from_mnemonic(mnemonic, language= "english", passphrase=None)
+    hd_wallet_fact = HdWalletBipFactory(HdWalletBip44Coins.POLKADOT_ED25519_SLIP)
+    hd_wallet = hd_wallet_fact.CreateFromMnemonic(wallet_name, mnemonic)
+    hd_wallet.Generate(acc_idx=acc_idx, change_idx=HdWalletBipChanges.CHAIN_EXT, addr_num=addr_num, addr_off=addr_offset)
 
-    derivation = "m/0'"
-    addresses = []
-    for i in range(10):
-        new_addr = generate_address(master_hdwallet, derivation + f"/{i}'")
-        addresses.append(new_addr)
+    mnemonic = hd_wallet.GetData(HdWalletBipDataTypes.MNEMONIC)
+    derivation = "m'/44'/354'"
 
     data = {
-        'addresses': addresses,
-        'keystore': {
-            'derivation': derivation,
-            'mnemonic': mnemonic
-        }
+        'mnemonic': mnemonic,
+        'derivation': derivation,
+        'acc_idx': acc_idx,
+        'addr_num': addr_num,
+        'addr_offset': addr_offset,
     }
+
+    # global current_wallet
+
+    # master_hdwallet = HDWallet("BTC")
+    # master_hdwallet.from_mnemonic(mnemonic, language= "english", passphrase=None)
+
+    # derivation = "m/0'"
+    # addresses = []
+    # for i in range(10):
+    #     new_addr = generate_address(master_hdwallet, derivation + f"/{i}'")
+    #     addresses.append(new_addr)
+
+    # data = {
+    #     'addresses': addresses,
+    #     'keystore': {
+    #         'derivation': derivation,
+    #         'mnemonic': mnemonic
+    #     }
+    # }
     save_wallet(wallet_name, data)
-    current_wallet = {
-        'name': wallet_name,
-        'data': data
-    }
+    global current_wallet
+    current_wallet = hd_wallet
+    # current_wallet = {
+    #     'name': wallet_name,
+    #     'data': data
+    # }
 
 def type_of_wallet(wallet_name: str):
     wallet_type = None
@@ -289,7 +324,7 @@ def type_of_wallet(wallet_name: str):
             wallet_type = "-NEW-WALLET-" if values["-NEW-WALLET-"] else "-FROM-MNEMONIC-"
             if wallet_type == "-NEW-WALLET-":
                 create_new_wallet(wallet_name)
-                display_seed_window(current_wallet['data']['keystore']['mnemonic'])
+                display_seed_window(current_wallet.GetData(HdWalletBipDataTypes.MNEMONIC))
             
             elif wallet_type == "-FROM-MNEMONIC-":
                 mnemonic = input_seed_window()
@@ -304,35 +339,37 @@ def save_wallet(wallet_name: str, data: dict):
 def load_wallet(wallet_path: str):
     wallet_name = wallet_path.split('/')[-1].split('.')[0]
     with open(wallet_path, "r+") as file:
-        current_wallet = {
-            'wallet_name': wallet_name,
-            'data': json.load(file)
-        }
-    # for key in current_wallet:
-    #     print(key, current_wallet[key])
+        data = json.load(file)
+
+    hd_wallet_fact = HdWalletBipFactory(HdWalletBip44Coins.POLKADOT_ED25519_SLIP)
+    hd_wallet = hd_wallet_fact.CreateFromMnemonic(wallet_name, data['mnemonic'])
+    hd_wallet.Generate(acc_idx=data['acc_idx'], change_idx=HdWalletBipChanges.CHAIN_EXT, addr_num=data['addr_num'], addr_off=data['addr_offset'])
+    
+    global current_wallet
+    current_wallet = hd_wallet
     return current_wallet
 
-def generate_hd_wallet(mnemonic: str):
-    hdwallet = HDWallet("BTC")
-    hdwallet.from_mnemonic(mnemonic, language= 'english')
+# def generate_hd_wallet(mnemonic: str):
+#     hdwallet = HDWallet("BTC")
+#     hdwallet.from_mnemonic(mnemonic, language= 'english')
 
-    return hdwallet
+#     return hdwallet
 
-def generate_private_key(master_hdwallet: HDWallet, path: str):
-    private_key = master_hdwallet.from_path(path).private_key()
-    master_hdwallet.clean_derivation()
-    return private_key
+# def generate_private_key(master_hdwallet: HDWallet, path: str):
+#     private_key = master_hdwallet.from_path(path).private_key()
+#     master_hdwallet.clean_derivation()
+#     return private_key
 
-def generate_compress_publickey(master_hdwallet: HDWallet, path: str) -> str:   
-    public_key = master_hdwallet.from_path(path).public_key()
-    master_hdwallet.clean_derivation()
-    return public_key
+# def generate_compress_publickey(master_hdwallet: HDWallet, path: str) -> str:   
+#     public_key = master_hdwallet.from_path(path).public_key()
+#     master_hdwallet.clean_derivation()
+#     return public_key
 
 
-def generate_address(master_hdwallet: HDWallet, path: str):
-    address = master_hdwallet.from_path(path).p2pkh_address()
-    master_hdwallet.clean_derivation()
-    return address
+# def generate_address(master_hdwallet: HDWallet, path: str):
+#     address = master_hdwallet.from_path(path).p2pkh_address()
+#     master_hdwallet.clean_derivation()
+#     return address
 
 
 def display_seed_window(mnemonic: str):
@@ -371,10 +408,11 @@ def input_seed_window() -> str:
     return mnemonic
 
 def update_address_balance():
-    result = []
-    list_address = current_wallet['data']['addresses']
+    addrs_dict = current_wallet.GetData(HdWalletBipDataTypes.ADDRESS).ToDict()
+    list_address = [ pubkey_to_address(addrs_dict[each]['raw_compr_pub'][2:]) for each in addrs_dict]
     wallet_balance = 0
 
+    result = []
     for address in list_address:
         amount = get_balance(address)
         wallet_balance += amount
@@ -383,7 +421,9 @@ def update_address_balance():
     return result, wallet_balance
 
 def get_wallet_trans_history():
-    list_address = current_wallet['data']['addresses']
+    addrs_dict = current_wallet.GetData(HdWalletBipDataTypes.ADDRESS).ToDict()
+    list_address = [ pubkey_to_address(addrs_dict[each]['raw_compr_pub'][2:]) for each in addrs_dict]
+
     data = transmitData('getaddressTransactions', [list_address])
 
     ClientSocket.sendall(data.encode())
@@ -393,7 +433,8 @@ def get_wallet_trans_history():
 
 def trans_history_summary_info(list_trans_json):
     result = []
-    list_address = current_wallet['data']['addresses']
+    addrs_dict = current_wallet.GetData(HdWalletBipDataTypes.ADDRESS).ToDict()
+    list_address = [ pubkey_to_address(addrs_dict[each]['raw_compr_pub'][2:]) for each in addrs_dict]
 
     for trans_json in list_trans_json:
         trans = Transaction.from_json(trans_json)
@@ -401,7 +442,7 @@ def trans_history_summary_info(list_trans_json):
         for trans_output in trans.outputList:
             if trans_output.recvAddress not in list_address:
                 send_amount += trans_output.amount
-        
+
         trans_date = datetime.fromtimestamp(trans.time)
         result.append( [trans_date, trans.hash, send_amount] )
     
@@ -412,8 +453,8 @@ def trans_history_summary_info(list_trans_json):
     return result
 
 def wallet_info_window():
-    wallet_name = current_wallet['wallet_name']
-    mnemonic = current_wallet['data']['keystore']['mnemonic']
+    wallet_name = current_wallet.GetData(HdWalletBipDataTypes.WALLET_NAME)
+    mnemonic = current_wallet.GetData(HdWalletBipDataTypes.MNEMONIC)
 
     wallet_info_layout = [
         [sg.Text('Wallet name:', size=(20,)), sg.Text(wallet_name)],
@@ -482,6 +523,12 @@ def show_trans_detail(trans_hash):
         if event in (None, 'Exit', 'Cancel'):
             break
 
+def gettotalOutputAmount(outputList):
+    amount = 0
+    for each in outputList:
+        amount += each[1]
+    return amount
+
 def main_window():
     list_output = []
     address_balance_list, wallet_balance = update_address_balance()
@@ -509,7 +556,8 @@ def main_window():
         [sg.Table(address_balance_list, headings=['address', 'balance'], max_col_width=35,
                     auto_size_columns=True, justification='left', 
                     num_rows=5, key="-ADDRESS-TABLE-",
-                    expand_x=True, expand_y=True
+                    expand_x=True, expand_y=True,
+                    
         )],
         [sg.Button('Refresh', key='-REFRESH-ADDR-TABLE-')]
     ]
@@ -521,7 +569,9 @@ def main_window():
                     num_rows=5, key="-OUTPUT-TABLE-",
                     expand_x=True, 
                     select_mode= sg.SELECT_MODE_BROWSE,
-                    enable_events=True
+                    enable_events=True,
+                    right_click_menu= ['Right', ['Delete']],
+                    right_click_selects=True,
         )],
         [sg.Button('Create output', key='-CREATE-OUTPUT-'), sg.Button('Clear', key='-CLEAR-')],
         [sg.Button('Send', key='-SUBMIT-TRANSACTION-')],
@@ -542,8 +592,8 @@ def main_window():
     window.bind("<Control-C>", "Control-C")
 
     while True:
-        event, values = window.read()
-        print(event, values) #debug
+        event, values = window.read(timeout= 3000)
+        # print(event, values) #debug
         if event in (None, 'Exit', 'Cancel'):
             break
         
@@ -555,9 +605,10 @@ def main_window():
 
         elif event == '-SUBMIT-TRANSACTION-':
             fee = int(values['-FEE-'])
-            trans = createTransaction(fee, list_output)
-            trans = sign_transaction(trans)
-            submitTransaction(trans)
+            if validateAmountSpend(gettotalOutputAmount(list_output), fee, int(values['-WALLET-BALANCE-'])):
+                trans = createTransaction(fee, list_output)
+                trans = sign_transaction(trans)
+                submitTransaction(trans)
 
             window['-FEE-'].update('')
             list_output = []
@@ -590,6 +641,24 @@ def main_window():
             trans_hash = history_info[row][1]
             print('row: ', row, 'trans_hash: ', trans_hash)
             show_trans_detail(trans_hash)
+
+        elif event == 'Delete':
+            row = int( values["-OUTPUT-TABLE-"][0])
+            list_output.pop(row)
+            window['-OUTPUT-TABLE-'].update(list_output)
+
+        elif event == '-CLEAR-':
+            list_output = []
+            window['-OUTPUT-TABLE-'].update(list_output)
+
+
+        address_balance_list, wallet_balance = update_address_balance()
+        window["-ADDRESS-TABLE-"].update(address_balance_list)
+        window['-WALLET-BALANCE-'].update(wallet_balance)
+
+        list_trans_json = get_wallet_trans_history()
+        history_info = trans_history_summary_info(list_trans_json)
+        window['-HISTORY-TABLE-'].update(history_info)
 
 
 def main():

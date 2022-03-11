@@ -1,5 +1,4 @@
-import socket, os, json, ecdsa
-from tkinter.messagebox import NO
+import socket, os, json, ed25519, base58
 from _thread import *
 
 from config import *
@@ -124,10 +123,12 @@ def getblock(blockHeight: int) -> Block:
     if not os.path.exists(blockPath):
         return None
     
-    with open(blockPath, 'r') as file:
-        block_json = json.load(file)
+    with open(blockPath, 'rb') as file:
+        # block_json = json.load(file)
+        block = Block.from_binary(file.read())
 
-    return Block.from_json(block_json)
+    # return Block.from_json(block_json)
+    return block
 
 def getblockheader(blockHeight: int) -> BlockHeader:
     block = getblock(blockHeight)
@@ -153,8 +154,9 @@ def writeblock(block: Block, blockHeight: int):
     blockPath = blockClusterPath + '/' + '{}.txt'.format(blockHeight)
 
     #write block data
-    with open(blockPath, 'w+') as file:
-        json.dump(block.toJSON(), file, indent= 4, separators=(', ', ': '))
+    with open(blockPath, 'wb+') as file:
+        # json.dump(block.toJSON(), file, indent= 4, separators=(', ', ': '))
+        file.write(block.to_binary())
 
     writeBlockIndex(block.hash, blockHeight)
 
@@ -245,7 +247,7 @@ def writeTrans(tran_hash: str, blockHeight: int, idx: int):
     
     mydb[a[collection_index]].insert_one(record)
 
-def getUTXO(tran_hash: str, idx: int):
+def getUTXO(tran_hash: str, idx: int) -> TransactionOutput:
     UTXO_index_info = get_UTXO_index_info_parallel(tran_hash, idx)
     block = getblock(UTXO_index_info['blockHeight'])
 
@@ -277,9 +279,9 @@ def writeUTXO(UTXO: TransactionOutput, tran_hash: str, idx: int, blockHeight: in
     record = {
         "_id": tran_hash + str(idx),
         "blockHeight": blockHeight,
-        "address": UTXO.recvAddress,
-        "amount": UTXO.amount,
-        "script_type": UTXO.script_type
+        # "address": UTXO.recvAddress,
+        # "amount": UTXO.amount,
+        # "script_type": UTXO.script_type
     }
 
     mydb[a[collection_index]].insert_one(record)
@@ -290,6 +292,9 @@ def verify_block(block: Block):
         return False
 
     checkCoinbase = False
+
+    used_UTXOs = []
+
     for trans in block.BlockBody.transList:
         if len(trans.inputList) == 0:
             if not checkCoinbase:
@@ -297,10 +302,18 @@ def verify_block(block: Block):
             else:
                 print("here 2")
                 return False #only one coinbase per block
+        
+        for input in trans.inputList:
+            UTXO_id = input.txid + str(input.idx)
+            if UTXO_id in used_UTXOs:
+                return False
+            used_UTXOs.append(UTXO_id)
 
         if not verify_tx(trans):
             print("here 3")
             return False
+        
+        
 
         
     if block.BlockBody.getHash() != block.BlockHeader.merkleRoot:
@@ -320,8 +333,8 @@ def check_proof_of_work(block_hash: str, targetDiff: int):
     if not block_hash or not targetDiff:
         return False
     block_hash_bytes = binascii.unhexlify(block_hash.encode())
-    print("block hash bytes: ", hex(int.from_bytes(block_hash_bytes, 'big')))
-    print("targetDiff: ", hex(bits_to_target(targetDiff)))
+    # print("block hash bytes: ", hex(int.from_bytes(block_hash_bytes, 'big')))
+    # print("targetDiff: ", hex(bits_to_target(targetDiff)))
     if int.from_bytes(block_hash_bytes, 'big') < bits_to_target(targetDiff):
         return True
     return False
@@ -384,36 +397,45 @@ def verify_tx(tran: Transaction):
     for input in tran.inputList:
         UTXOutput_info = get_UTXO_index_info_parallel(input.txid, input.idx)
 
+        trans_hash = UTXOutput_info['_id'][:64]
+        idx = int(UTXOutput_info['_id'][64:])
+
+        UTXOutput = getUTXO(trans_hash, idx)
+
         if not UTXOutput_info:
+            print('here 1')
             return False
 
-        if UTXOutput_info in UTXOutput_info_list:
+        if UTXOutput_info['_id'] in UTXOutput_info_list:
+            print('here 2')
             return False
         
-        UTXOutput_info_list.append(UTXOutput_info)
+        UTXOutput_info_list.append(UTXOutput_info['_id'])
         
-        if not verifyTransInput(input, UTXOutput_info, tran.hash):
+        if not verifyTransInput(input, UTXOutput, tran.hash):
+            print('here 3')
             return False
 
-        inputAmount += UTXOutput_info['amount']
+        inputAmount += UTXOutput.amount
     
     outputAmount = 0
     for output in tran.outputList:
         outputAmount += output.amount
     
     if outputAmount - inputAmount > 0:
+        print('here 4')
         return False
 
 
     return True
 
-def verifyTransInput(input : TransactionInput, UTXOutput_info, tran_hash: str):
-    if UTXOutput_info['script_type'] == 'P2PKH':
-        return verifyP2PKH(input, UTXOutput_info, tran_hash)
+def verifyTransInput(input : TransactionInput, UTXOutput, tran_hash: str):
+    if UTXOutput.script_type == 'P2PKH':
+        return verifyP2PKH(input, UTXOutput, tran_hash)
 
     return False
 
-def verifyP2PKH(input : TransactionInput, UTXOutput_info, tran_hash: str):
+def verifyP2PKH(input : TransactionInput, UTXOutput, tran_hash: str):
     stack = [input.signature, input.publicKey]
 
     "OP_DUP"
@@ -423,20 +445,28 @@ def verifyP2PKH(input : TransactionInput, UTXOutput_info, tran_hash: str):
     address = pubkey_to_address(temp)
     stack.append(address)
     "append address"
-    stack.append(UTXOutput_info['address'])
+    stack.append(UTXOutput.recvAddress)
 
     "OP_EQUALVERIFY"
     outputPublickeyHash = stack.pop()
     inputPublickeyHash = stack.pop()
     if inputPublickeyHash != outputPublickeyHash:
+        print('here 5')
         return False
     
     "OP_CHECKSIG"
-    publickeyObject = ecdsa.VerifyingKey.from_string(binascii.unhexlify(input.publicKey.encode()), curve = ecdsa.SECP256k1, hashfunc= hashlib.sha256)
-    # print("signature: ", input.signature)
+    publickeyObject = ed25519.VerifyingKey(binascii.unhexlify(input.publicKey.encode()))
+    print("signature: ", input.signature)
+    print(len(input.signature))
     # print("tranasction hash: ",tran_hash)
-    # print("public key: ", input.publicKey)
-    return publickeyObject.verify_digest(binascii.unhexlify(input.signature.encode()), binascii.unhexlify(tran_hash.encode()))
+    # print("input public key: ", input.publicKey)
+    # print("publickeyObj: ", publickeyObject.to_bytes().hex())
+    # print(publickeyObject.verify(binascii.unhexlify(input.signature.encode()), binascii.unhexlify(tran_hash.encode())))
+    try:
+        publickeyObject.verify(binascii.unhexlify(input.signature.encode()), binascii.unhexlify(tran_hash.encode()))
+        return True
+    except:
+        return False
 
 
 
@@ -455,14 +485,41 @@ def verifyP2PKH(input : TransactionInput, UTXOutput_info, tran_hash: str):
 
 # pubkeyObject = ecdsa.VerifyingKey.from_string(binascii.unhexlify(public_key.encode()), curve=ecdsa.SECP256k1, hashfunc= hashlib.sha256)
 # print(pubkeyObject.to_string().hex())
+def pubkey_to_address(pubkey: str):
+    hash1 = hashlib.sha256(pubkey.encode()).hexdigest()
+    hash2 = hashlib.new('ripemd160', hash1.encode()).hexdigest()
 
+    hash3 = hashlib.sha256(hash2.encode()).hexdigest()
+    hash4 = hashlib.sha256(hash3.encode()).hexdigest()
+
+    #first 4 bytes of hash4
+    checksum = hash4[:8]
+
+    result = hash2 + checksum
+
+    return base58.b58encode(binascii.unhexlify(result)).decode()
+
+def validateAddress(address):
+    addr_decode = base58.b58decode(address).hex()
+
+
+    hash = addr_decode[:len(addr_decode) - 8]
+
+    checksum = addr_decode[len(addr_decode) - 8:]
+
+    for i in range(2):
+        hash = hashlib.sha256(hash.encode()).hexdigest()
+
+    if hash[:8] == checksum:
+        return True
+    return False
 
 def find_nonce(version, prevHash, merkleRoot, timeStamp, targetDiff):
     nonce = 0
     hash_value = hash(version, prevHash, merkleRoot, timeStamp, targetDiff, nonce)
     while not check_proof_of_work(hash_value, targetDiff):
         nonce += 1
-        print("nonce: ", nonce)
+        # print("nonce: ", nonce)
         hash_value = hash(version, prevHash, merkleRoot, timeStamp, targetDiff, nonce)
     
     # print(str({
@@ -487,32 +544,32 @@ def hash(version, prevHash, merkleRoot, timeStamp, targetDiff, nonce):
         }).encode()
     return hashlib.sha256(text).hexdigest()
 
-def genesis_block():
-    transInput = []
-    transOutput = [TransactionOutput(100000, "1L2DhfDNRyK2KLwX9PU4YWaevRmiT5sgHM")]
-    timeStamp = time.time()
+# def genesis_block():
+#     transInput = []
+#     transOutput = [TransactionOutput(100000, "1L2DhfDNRyK2KLwX9PU4YWaevRmiT5sgHM")]
+#     timeStamp = int(time.time())
 
-    trans = Transaction(transInput, transOutput, timeStamp)
-    body = BlockBody([trans])
+#     trans = Transaction(transInput, transOutput, timeStamp)
+#     body = BlockBody([trans])
 
-    version = 1
-    prevHash = "0000000000000000000000000000000000000000000000000000000000000000"
-    merkleRoot = body.getHash()
-    timeStamp = time.time()
-    targetDiff = 0x1f00ffff
-    nonce = find_nonce(version, prevHash, merkleRoot, timeStamp, targetDiff)
-    print('nonce: ', nonce)
+#     version = 1
+#     prevHash = "0000000000000000000000000000000000000000000000000000000000000000"
+#     merkleRoot = body.getHash()
+#     timeStamp = time.time()
+#     targetDiff = 0x1f00ffff
+#     nonce = find_nonce(version, prevHash, merkleRoot, timeStamp, targetDiff)
+#     print('nonce: ', nonce)
 
-    header = BlockHeader(version, prevHash, merkleRoot, timeStamp, targetDiff, nonce)
+#     header = BlockHeader(version, prevHash, merkleRoot, timeStamp, targetDiff, nonce)
 
-    block = Block(header, body)
-    print('block hash: ', block.getHash())
-    print("block header hash", block.BlockHeader.getHash())
-    print("int of hash: ", int.from_bytes(block.hash, "big"))
+#     block = Block(header, body)
+#     print('block hash: ', block.getHash())
+#     print("block header hash", block.BlockHeader.getHash())
+#     print("int of hash: ", int.from_bytes(block.hash, "big"))
 
-    writeblock(block, 0)
-    add_tx_to_address_index(block, 0)
-    update_blockchain_info(0, block.hash, block.BlockHeader.targetDiff)
+#     writeblock(block, 0)
+#     add_tx_to_address_index(block, 0)
+#     update_blockchain_info(0, block.hash, block.BlockHeader.targetDiff)
 
 def get_fee(list_trans: list):
     inputAmount = 0
@@ -528,6 +585,7 @@ def get_fee(list_trans: list):
     return inputAmount - outputAmount
 
 
+
 def create_new_block(list_trans: list):
     blockchain_info = get_blockchain_info()
 
@@ -537,14 +595,14 @@ def create_new_block(list_trans: list):
 
     fee = get_fee(list_trans)
 
-    coinbaseTrans = Transaction([], [TransactionOutput(25 + fee, "1L2DhfDNRyK2KLwX9PU4YWaevRmiT5sgHM")], time.time())
+    coinbaseTrans = Transaction([], [TransactionOutput(25 + fee, "8qUAkic2cyxyNGvHhPtN9DdvQ3FsouzYe")], int(time.time()))
 
     body = BlockBody([coinbaseTrans] + list_trans)
 
     version = 1
     prevHash = prevBlockHash
     merkleRoot = body.getHash()
-    timeStamp = time.time()
+    timeStamp = int(time.time())
 
     if height + 1 % 100 == 0:
         targetDiff = recalculateDifficulty()
@@ -558,8 +616,8 @@ def create_new_block(list_trans: list):
 
     block = Block(header, body)
     print('block hash: ', block.getHash())
-    print("block header hash", block.BlockHeader.getHash())
-    print("int of hash: ", int.from_bytes(block.hash.encode(), "big"))
+    # print("block header hash", block.BlockHeader.getHash())
+    # print("int of hash: ", int.from_bytes(block.hash.encode(), "big"))
     print("target Difficulty: ", block.BlockHeader.targetDiff)
 
     return block
@@ -645,19 +703,34 @@ def mining() -> Block:
         
 
         transList = [Transaction.from_json(trans_json) for trans_json in result]
+
+        used_UTXOs = []
         for trans in transList:
+            remove = False
+            for input in trans.inputList:
+                UTXO_id = input.txid + str(input.idx)
+                # print(UTXO_id)
+                if UTXO_id in used_UTXOs:
+                    remove = True
+                
+                used_UTXOs.append(UTXO_id)
             if not verify_tx(trans):
+                remove = True
+            
+            if remove:
                 transList.remove(trans)
 
         if transList != []:
             new_block = create_new_block(transList)
             height = get_blockchain_info()['height'] + 1
             writeblock(new_block, height)
+            del_UTXO_from_address_index(new_block)
+            add_UTXO_to_address_index(new_block, height)
             add_tx_to_address_index(new_block, height)
             update_blockchain_info(height, new_block.hash, new_block.BlockHeader.targetDiff)
         
-        print("new block mine successfuly")
-        return new_block
+            print("new block mine successfuly")
+            return new_block
     return None
 
 def synchronize(ClientSocket):
@@ -700,6 +773,7 @@ def synchronize(ClientSocket):
             block = getblock(i)
             if block != None:
                 del_tx_from_address_index(block, i)
+                undo_UTXO_from_address_index(block, i)
                 deleteBlock(i)
 
         #synchronize
@@ -712,13 +786,14 @@ def synchronize(ClientSocket):
             print("verify block: ", verify_block(block))
             if verify_block(block):
                 writeblock(block, i)
+                del_UTXO_from_address_index(block)
+                add_UTXO_to_address_index(block, i)
                 add_tx_to_address_index(block, i)
                 update_blockchain_info(i, block.hash, block.BlockHeader.targetDiff)
         
         print("finish synchronize")
 
 def del_tx_from_address_index(block: Block, blockHeight: int):
-
     transList = block.BlockBody.transList
     for trans in transList:
         for input in trans.inputList:
@@ -745,15 +820,89 @@ def add_tx_to_address_index(block: Block, blockHeight: int):
                     "list_trans": [{
                         'trans_hash': trans.hash,
                         'blockHeight': blockHeight
-                    }]
+                    }],
+                    "list_UTXOs": []
                 }
             else:
+                if 'list_trans' not in result:
+                    result['list_trans'] = []
+
                 result['list_trans'].append({
                     'trans_hash': trans.hash,
                     'blockHeight': blockHeight
                 })
 
-            mydb['UserAddress'].update_one({"_id": address}, {"$set": {"list_trans": result['list_trans']}}, upsert=True)
+            mydb['UserAddress'].update_one({"_id": address}, {"$set": {"list_UTXOs": result['list_UTXOs'], "list_trans": result['list_trans']}}, upsert=True)
+
+def undo_UTXO_from_address_index(block: Block, blockHeight: int): 
+    # used when revert synchronize
+    transList = block.BlockBody.transList
+    for trans in transList:
+        for output_idx, output in enumerate(trans.outputList):
+            address = output.recvAddress
+            result = mydb['UserAddress'].find_one({"_id": address})
+            for each in result['list_UTXOs']:
+                if each['UTXO_id'] == trans.hash + str(output_idx):
+                    result['list_UTXOs'].remove(each)
+
+            mydb['UserAddress'].update_one({"_id": address}, {"$set": {"list_UTXOs": result['list_UTXOs']}}, upsert=True)
+
+
+        for input_idx, input in enumerate(trans.inputList):
+            address = getTransOutput(input.txid, input.idx).recvAddress
+            UTXO_id = input.txid + str(input.idx)
+
+            result = mydb['UserAddress'].find_one({"_id": address})
+            result['list_UTXOs'].append({
+                'UTXO_id': trans.hash + str(output_idx),
+                'blockHeight': blockHeight
+            })
+
+            mydb['UserAddress'].update_one({"_id": address}, {"$set": {"list_UTXOs": result['list_UTXOs']}}, upsert=True)
+
+    pass
+
+def del_UTXO_from_address_index(block: Block):
+    transList = block.BlockBody.transList
+    for trans in transList:
+        for input_idx, input in enumerate(trans.inputList):
+            address = getTransOutput(input.txid, input.idx).recvAddress
+            UTXO_id = input.txid + str(input.idx)
+            result = mydb['UserAddress'].find_one({"_id": address})
+            
+            for each in result['list_UTXOs']:
+                if each['UTXO_id'] == UTXO_id:
+                    result['list_UTXOs'].remove(each)
+
+            mydb['UserAddress'].update_one({"_id": address}, {"$set": {"list_UTXOs": result['list_UTXOs']}}, upsert=True)
+
+def add_UTXO_to_address_index(block: Block, blockHeight: int):
+    transList = block.BlockBody.transList
+    for trans in transList:
+        for output_idx, output in enumerate(trans.outputList):
+            address = output.recvAddress
+
+            result = mydb['UserAddress'].find_one({"_id": address})
+            if result == None:
+                result = {
+                    "_id": address,
+                    "list_trans": [],
+                    "list_UTXOs": [{
+                        'UTXO_id': trans.hash + str(output_idx),
+                        'blockHeight': blockHeight
+                    }]
+                }
+            else:
+                if 'list_UTXOs' not in result:
+                    result['list_UTXOs'] = []
+
+                result['list_UTXOs'].append({
+                    'UTXO_id': trans.hash + str(output_idx),
+                    'blockHeight': blockHeight
+                })
+
+            mydb['UserAddress'].update_one({"_id": address}, {"$set": {"list_UTXOs": result['list_UTXOs'], "list_trans": result['list_trans']}}, upsert=True)
+
 
 if __name__ == "__main__":
     p = Pool(processes=2)
@@ -765,11 +914,12 @@ if __name__ == "__main__":
     last_mining_time = 0
     last_synchronize_time = 0
     last_trying_to_connect_time = 0
+    last_ping = 0
 
     while True:
         now_time = time.time()
         
-        if isConnected == False and now_time - last_trying_to_connect_time > 15:
+        if isConnected == False and now_time - last_trying_to_connect_time > 20:
             ClientSocket = connectPeer()
             if ClientSocket != None:
                 isConnected = True
@@ -777,8 +927,9 @@ if __name__ == "__main__":
                 isConnected = False
             last_trying_to_connect_time = now_time
         
-        if isConnected:
+        if isConnected and now_time - last_ping > 5:
             isConnected = checkIsConnected(ClientSocket)
+            last_ping = now_time
 
         if now_time - last_mining_time > 5:
             new_block = mining()

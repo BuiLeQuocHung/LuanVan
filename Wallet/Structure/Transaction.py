@@ -7,7 +7,7 @@ class BaseTransactionInput:
         self.idx = idx
 
 class TransactionInput(BaseTransactionInput):
-    def __init__(self, txid, idx: np.int32,  publicKey, signature = None):
+    def __init__(self, txid, idx: int,  publicKey, signature = None):
         super().__init__(txid, idx)
 
         self.publicKey = publicKey

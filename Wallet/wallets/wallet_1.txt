@@ -1,18 +1,7 @@
 {
-    "addresses": [
-        "1L2DhfDNRyK2KLwX9PU4YWaevRmiT5sgHM", 
-        "122ASiQw9LRSdW1dd2WLa8aNvi4rE41RBE", 
-        "1KXaW6YL3VmKPm1DmWC7KFPy2Ujjv36thE", 
-        "16ntcjNX3Y3q8SKw3G3WFiQhygti2Ci6iw", 
-        "1MpnS2MQsJYFj9QsayYWGNGojAVtZhStdP", 
-        "18n5UYuToqA6wjgq1W8ANknWbqyN3HdkJF", 
-        "1atojgMmwX2dfYJvho64h3MfjGtm8EXjr", 
-        "18aXAiXAUZnX6gvsFoEAdTVw9yL5B4k7g", 
-        "1KwP1kx6cRd1NXcHrHUNcx1dZtZ1JZmQai", 
-        "1MhDUGkhamNn6VGyhu6AxGuw81dBjmdjWL"
-    ], 
-    "keystore": {
-        "derivation": "m/0'", 
-        "mnemonic": "regret time harbor usual juice push lion spatial fabric card during link"
-    }
+    "acc_idx": 0, 
+    "addr_num": 20, 
+    "addr_offset": 0, 
+    "derivation": "m'/44'/354'", 
+    "mnemonic": "bulb announce inflict staff random pair culture unable uphold license reform alley"
 }
