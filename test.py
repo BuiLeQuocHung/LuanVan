@@ -20,9 +20,10 @@ def getblock(blockHeight: int) -> Block:
         # block_json = json.load(file)
         temp = file.read()
         print(len(temp))
+        print(temp[:80])
         block = Block.from_binary(temp)
 
     # return Block.from_json(block_json)
     return block
 
-print(getblock(0).toJSON())
+print(sys.getsizeof(json.dumps(getblock(5).toJSON())))

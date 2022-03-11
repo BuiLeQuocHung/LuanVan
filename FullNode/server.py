@@ -352,8 +352,9 @@ def deleteBlock(blockHeight: int):
             deleteUTXO_parallel(tran.hash, output_idx)
 
         for input_idx, input in enumerate(tran.inputList):
-            UTXOutput = getUTXO(input.txid, input_idx)
-            writeUTXO(UTXOutput, input.txid, input_idx, blockHeight)
+            UTXOutput = getTransOutput(input.txid, input.idx)
+            UTXO_blockHeight = get_tran_index_info_parallel(input.txid)['blockHeight']
+            writeUTXO(UTXOutput, input.txid, input.idx, UTXO_blockHeight)
 
         deleteTrans_parallel(tran.hash)
     

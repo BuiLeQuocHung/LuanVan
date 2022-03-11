@@ -134,7 +134,7 @@ class Block:
             trans_bytes = trans.to_binary()
             byte_array.extend(trans_bytes)
 
-        print(bytes(byte_array))
+        # print(bytes(byte_array))
         return bytes(byte_array)
         
     
