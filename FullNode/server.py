@@ -572,6 +572,9 @@ def verify_tx(tran: Transaction):
     UTXOutput_info_list = []
     for input in tran.inputList:
         UTXOutput_info = get_UTXO_index_info_parallel(input.txid, input.idx)
+        if not UTXOutput_info:
+            print('here 0')
+            return False
 
         trans_hash = UTXOutput_info['_id'][:64]
         idx = int(UTXOutput_info['_id'][64:])

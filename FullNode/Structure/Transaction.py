@@ -1,4 +1,5 @@
 import binascii
+import enum
 import  hashlib, json
 from tabnanny import check
 import numpy as np
@@ -66,12 +67,16 @@ class TransactionInput(BaseTransactionInput):
         signature = input_json['signature']
         return TransactionInput(txid, idx, publicKey, signature)
 
+class ScriptType(enum.IntEnum):
+    P2PKH = 1
+
+
 class BaseTransactionOutput:
     def __init__(self, amount):
         self.amount = amount
 
 class TransactionOutput(BaseTransactionOutput):
-    def __init__(self, amount: float, recvAddress: str, script_type = 'P2PKH'):
+    def __init__(self, amount: float, recvAddress: str, script_type = ScriptType.P2PKH):
         super().__init__(amount)
         self.recvAddress = recvAddress
         self.script_type = script_type
@@ -87,24 +92,15 @@ class TransactionOutput(BaseTransactionOutput):
     def to_binary(self):
         byte_array = bytearray()
 
+        script_type_bytes = int.to_bytes(self.script_type, 1, 'big')
         amount_bytes = int.to_bytes(self.amount, 6, 'big') # 6 bytes
-
         address_bytes = self.recvAddress.encode()
-        address_bytes_len = int.to_bytes(len(address_bytes), 1, 'big')
 
-        script_type_bytes = self.script_type.encode()
-        # script_type_bytes_len = int.to_bytes(len(script_type_bytes), 1, 'big')
-
-
-        byte_array.extend(amount_bytes)
-        byte_array.extend(address_bytes_len)
-        byte_array.extend(address_bytes)
-        # byte_array.extend(script_type_bytes_len)
         byte_array.extend(script_type_bytes)
+        byte_array.extend(amount_bytes)
+        byte_array.extend(address_bytes)
 
         output_len_bytes = int.to_bytes(len(byte_array), 1, 'big')
-        # print('output len bytes: ', output_len_bytes)
-        # print('len to int: ', int.from_bytes(output_len_bytes, 'big'))
         byte_array[0:0] = output_len_bytes
 
         
@@ -117,22 +113,14 @@ class TransactionOutput(BaseTransactionOutput):
 
     @staticmethod
     def from_binary(output_bytes: bytes):
-        # print('output bytes: ', output_bytes)
-        checkpoint = 6
-        amount = int.from_bytes(output_bytes[:checkpoint], 'big')
-        # print('amount: ', amount)
-
-        address_len = int.from_bytes(output_bytes[checkpoint: checkpoint + 1], 'big')
+        checkpoint = 0
+        script_type = int.from_bytes(output_bytes[checkpoint: checkpoint + 1], 'big')
         checkpoint += 1
-        recvAddress = output_bytes[checkpoint: checkpoint + address_len].decode()
-        # print('recvAddres: ', recvAddress)
+        amount = int.from_bytes(output_bytes[checkpoint: checkpoint + 6], 'big')
+        checkpoint += 6
+        address = output_bytes[checkpoint:].decode()
 
-        checkpoint += address_len
-        # script_type_bytes_len = int.from_bytes(output_bytes[checkpoint: checkpoint+2], 'big')
-        script_type = output_bytes[checkpoint:].decode()
-        # print('scriptType: ', script_type)
-
-        return TransactionOutput(amount, recvAddress, script_type)
+        return TransactionOutput(amount, address, script_type)
     
     @staticmethod
     def from_json(output_json):
