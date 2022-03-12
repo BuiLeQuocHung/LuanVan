@@ -101,7 +101,7 @@ def bits_to_target(bits: int):
 # with open('hahaha.txt', 'rb') as file:
 #     temp = file.read()
 #     print(len(temp))
-block = getblock(0)
+block = getblock(1)
 print(block.toJSON())
 
 # print('===================')

@@ -434,7 +434,7 @@ def verify_tx(tran: Transaction):
     return True
 
 def verifyTransInput(input : TransactionInput, UTXOutput, tran_hash: str):
-    if UTXOutput.script_type == 'P2PKH':
+    if UTXOutput.script_type == ScriptType.P2PKH:
         return verifyP2PKH(input, UTXOutput, tran_hash)
 
     return False

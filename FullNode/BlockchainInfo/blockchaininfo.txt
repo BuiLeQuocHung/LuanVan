@@ -1,5 +1,5 @@
 {
-    "bestBlockHash": "0000096242e03cc47f685bbd662ed1cb25649a72d39d22c0a0d6741e792d5316", 
+    "bestBlockHash": "00006dbf3a0f7566e883efe358834b38f1afac74f873ac0d34f8d3a9a5829c67", 
     "difficulty": 520159231, 
-    "height": 0
+    "height": 1
 }
