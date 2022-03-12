@@ -35,13 +35,11 @@ class TransactionInput(BaseTransactionInput):
     def to_binary(self):
         byte_array = bytearray()
 
-        input_len_bytes = int.to_bytes(130, 1, 'big')
         txid_bytes = binascii.unhexlify(self.txid.encode()) # 32 bytes
         idx_bytes = int.to_bytes(self.idx, 2, 'big') # 2 bytes
         pubkey_bytes = binascii.unhexlify(self.publicKey.encode()) # 32 bytes
         signature_bytes = binascii.unhexlify(self.signature.encode()) #64 bytes
 
-        byte_array.extend(input_len_bytes)
         byte_array.extend(txid_bytes)
         byte_array.extend(idx_bytes)
         byte_array.extend(pubkey_bytes)
@@ -99,15 +97,6 @@ class TransactionOutput(BaseTransactionOutput):
         byte_array.extend(script_type_bytes)
         byte_array.extend(amount_bytes)
         byte_array.extend(address_bytes)
-
-        output_len_bytes = int.to_bytes(len(byte_array), 1, 'big')
-        byte_array[0:0] = output_len_bytes
-
-        
-        # print(trans_output.toJSON())
-
-        # print('byte array: ', byte_array)
-        # print('bytes of bytearray: ', bytes(byte_array))
 
         return bytes(byte_array)
 
@@ -199,13 +188,11 @@ class Transaction:
         byte_array.extend(len_outputList_bytes)
         for output in self.outputList:
             temp = output.to_binary()
+            byte_array.extend(int.to_bytes(len(temp), 1, 'big')) # len output
             byte_array.extend(temp)
 
         time_bytes = int.to_bytes(self.time, 4, 'big')
         byte_array.extend(time_bytes)
-
-        trans_len_bytes = int.to_bytes(len(byte_array), 2, 'big')
-        byte_array[0:0] = trans_len_bytes
 
         return bytes(byte_array)
 
@@ -216,11 +203,9 @@ class Transaction:
         checkpoint += 1
         inputList = []
         for i in range(len_inputlist):
-            len_input = int.from_bytes(trans_bytes[checkpoint: checkpoint + 1], 'big')
-            checkpoint += 1
-            input_bytes = trans_bytes[checkpoint: checkpoint + len_input]
+            input_bytes = trans_bytes[checkpoint: checkpoint + 130]
             input = TransactionInput.from_binary(input_bytes) 
-            checkpoint += len_input
+            checkpoint += 130
             inputList.append(input)
         
         len_outputlist = int.from_bytes(trans_bytes[checkpoint: checkpoint + 1], 'big')

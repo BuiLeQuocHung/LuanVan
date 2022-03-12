@@ -805,14 +805,15 @@ def del_tx_from_address_index(block: Block):
 
             result = mydb['UserAddress'].find_one({"_id": address})
             
-            for each in result['list_trans']:
-                if each['trans_hash'] == trans.hash:
-                    result['list_trans'].remove(each)
+            if result:
+                for each in result['list_trans']:
+                    if each['trans_hash'] == trans.hash:
+                        result['list_trans'].remove(each)
 
-            if  result['list_UTXOs'] == [] and result['list_trans'] == []:
-                mydb['UserAddress'].delete_one({"_id": address})
-            else:
-                mydb['UserAddress'].update_one({"_id": address}, {"$set": {"list_trans": result['list_trans']}}, upsert=True)
+                if  result['list_UTXOs'] == [] and result['list_trans'] == []:
+                    mydb['UserAddress'].delete_one({"_id": address})
+                else:
+                    mydb['UserAddress'].update_one({"_id": address}, {"$set": {"list_trans": result['list_trans']}}, upsert=True)
 
 def add_tx_to_address_index(block: Block, blockHeight: int):
     transList = block.BlockBody.transList
@@ -831,9 +832,6 @@ def add_tx_to_address_index(block: Block, blockHeight: int):
                     "list_UTXOs": []
                 }
             else:
-                if 'list_trans' not in result:
-                    result['list_trans'] = []
-
                 result['list_trans'].append({
                     'trans_hash': trans.hash,
                     'blockHeight': blockHeight
@@ -851,6 +849,7 @@ def undo_UTXO_from_address_index(block: Block):
         for output_idx, output in enumerate(trans.outputList):
             address = output.recvAddress
             result = mydb['UserAddress'].find_one({"_id": address})
+
             for each in result['list_UTXOs']:
                 if each['UTXO_id'] == trans.hash + str(output_idx):
                     result['list_UTXOs'].remove(each)
@@ -867,14 +866,28 @@ def undo_UTXO_from_address_index(block: Block):
             UTXO_blockHeight = get_tran_index_info_parallel(input.txid)['blockHeight']
 
             result = mydb['UserAddress'].find_one({"_id": address})
+
+            if result == None:
+                result = {
+                    "_id": address,
+                    "list_trans": [],
+                    "list_UTXOs": [{
+                        'UTXO_id': UTXO_id,
+                        'blockHeight': UTXO_blockHeight
+                    }]
+                }
+            else:
+                result['list_UTXOs'].append({
+                    'UTXO_id': UTXO_id,
+                    'blockHeight': UTXO_blockHeight
+                })
+
             result['list_UTXOs'].append({
-                'UTXO_id': trans.hash + str(output_idx),
+                'UTXO_id': UTXO_id,
                 'blockHeight': UTXO_blockHeight
             })
 
-            mydb['UserAddress'].update_one({"_id": address}, {"$set": {"list_UTXOs": result['list_UTXOs']}}, upsert=True)
-
-    pass
+            mydb['UserAddress'].update_one({"_id": address}, {"$set": {"list_UTXOs": result['list_UTXOs'], "list_trans": result['list_trans']}}, upsert=True)
 
 def del_UTXO_from_address_index(block: Block):
     transList = block.BlockBody.transList
@@ -910,9 +923,6 @@ def add_UTXO_to_address_index(block: Block, blockHeight: int):
                     }]
                 }
             else:
-                if 'list_UTXOs' not in result:
-                    result['list_UTXOs'] = []
-
                 result['list_UTXOs'].append({
                     'UTXO_id': trans.hash + str(output_idx),
                     'blockHeight': blockHeight
