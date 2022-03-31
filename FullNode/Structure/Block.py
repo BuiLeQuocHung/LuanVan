@@ -127,8 +127,8 @@ class BlockBody:
     def to_binary(self):
         byte_array = bytearray()
 
-        number_of_trans_bytes = int.to_bytes(len(self.transList), 2, 'big')
-        byte_array.extend(number_of_trans_bytes)
+        # number_of_trans_bytes = int.to_bytes(len(self.transList), 2, 'big')
+        # byte_array.extend(number_of_trans_bytes)
 
         for trans in self.transList:
             trans_bytes = trans.to_binary()
@@ -140,10 +140,10 @@ class BlockBody:
     @staticmethod
     def from_binary(blockbody_bytes):
         checkpoint = 0
-        len_translist = int.from_bytes(blockbody_bytes[checkpoint: checkpoint + 2], 'big')
-        checkpoint += 2
+        # len_translist = int.from_bytes(blockbody_bytes[checkpoint: checkpoint + 2], 'big')
+        # checkpoint += 2
         transList = []
-        for i in range(len_translist):
+        while checkpoint < len(blockbody_bytes):
             trans_len = int.from_bytes(blockbody_bytes[checkpoint: checkpoint + 2], 'big')
             checkpoint += 2
             trans_bytes = blockbody_bytes[checkpoint: checkpoint + trans_len]

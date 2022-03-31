@@ -1,3 +1,4 @@
+import hdwallet
 from FullNode.Structure.Block import *
 import os
 from FullNode.config import *
@@ -19,13 +20,6 @@ def getblock(blockHeight: int) -> Block:
     with open(blockPath, 'rb') as file:
         # block_json = json.load(file)
         temp = file.read()
-        print(len(temp))
-        print(temp[:4].hex())
-        print(temp[4:36].hex())
-        print(temp[36:68].hex())
-        print(temp[68:72].hex())
-        print(temp[72:76].hex())
-        print(temp[76:80].hex())
         block = Block.from_binary(temp)
 
     # return Block.from_json(block_json)
@@ -101,8 +95,17 @@ def bits_to_target(bits: int):
 # with open('hahaha.txt', 'rb') as file:
 #     temp = file.read()
 #     print(len(temp))
+
+#=============================================================================
 block = getblock(1)
-print(block.toJSON())
+print(block.getHash())
+# with open('hahaha.txt', 'w+') as file:
+#     json.dump(block.toJSON(), file, sort_keys=True, indent= 4, separators=(', ', ': '))
+
+# print(block.to_binary()[82: 82 + 47].hex())
+#=============================================================================
+
+# trans_bytes = block.BlockBody.transList[1].to_binary()
 
 # print('===================')
 # output_bytes = block.BlockBody.transList[1].outputList[0].to_binary()
@@ -122,3 +125,55 @@ print(block.toJSON())
 
 # print(int.to_bytes(0, 1, 'big').hex())
 
+# checkpoint = 0
+# len_inputlist = int.from_bytes(trans_bytes[checkpoint: checkpoint + 1], 'big')
+# checkpoint += 1
+# inputList = trans_bytes[checkpoint: checkpoint + len_inputlist * 130]
+# checkpoint += len_inputlist * 130
+
+# len_outputlist = int.from_bytes(trans_bytes[checkpoint: checkpoint + 1], 'big')
+# checkpoint += 1
+# outputList_start = checkpoint
+# for i in range(len_outputlist):
+#     len_output = int.from_bytes(trans_bytes[checkpoint: checkpoint + 1], 'big')
+#     checkpoint += 1
+#     checkpoint += len_output
+# outputList = trans_bytes[outputList_start: checkpoint]
+
+# timeStamp = trans_bytes[checkpoint: checkpoint + 4]
+
+# print(len_inputlist.to_bytes(1, 'big').hex())
+# print('inputList: ')
+# print(inputList.hex())
+
+# print(len_outputlist.to_bytes(1, 'big').hex())
+# print('outputList: ')
+# print(outputList.hex())
+
+# print('timeStamp: ')
+# print(timeStamp.hex())
+
+def CKDpriv_hardened(k, c, i: int, n: int):
+    text = "{}{}{}".format(c, k, i)
+    hash_value = hashlib.sha512(text.encode()).hexdigest()
+    left, right = hash_value[:256], hash_value[256:]
+
+    if int(left, 16) >= n:
+        return None
+
+    privKey = (int(left, 16) + int(k, 16)) % n 
+    chaincode = right
+
+    if privKey == 0:
+        return None
+
+    return privKey, chaincode
+
+
+print(65535 * 2**224)
+temp = 65535 * 2**224
+print(len(hex(temp)))
+print(hex(temp))
+
+print(len(hex(bits_to_target(520159231))))
+print(len("ffff00000000000000000000000000000000000000000000000000000000"))
