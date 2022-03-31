@@ -968,7 +968,7 @@ if __name__ == "__main__":
     p = Pool(processes=2)
 
     if not isGenesisBlockExist():
-        # print("oh shit")
+        print("create genesis block")
         genesis_block()
     
     while True:
