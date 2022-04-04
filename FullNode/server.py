@@ -6,7 +6,7 @@ from config import *
 from Structure.Block import *
 from DatabaseConnect.connect_database import *
 from bitcoin import *
-from update_balance_from_blockchain import add_new_address
+from update_balance_from_blockchain import add_new_address, widthdrawn_money
 
 from itertools import repeat
 from functools import reduce
@@ -46,6 +46,10 @@ def threaded_client(connection):
         elif task == 'createaddress':
             entropy, userID = data_decode['param']
             add_new_address(entropy, userID)
+        
+        elif task == 'widthdrawn':
+            amount, address = data_decode['param']
+            widthdrawn_money(amount, address)
 
         elif task == 'getblock':
             blockHeight = data_decode['param'][0]

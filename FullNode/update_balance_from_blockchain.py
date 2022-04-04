@@ -177,12 +177,3 @@ def widthdrawn_money(amount, address):
     trans_to_mempool(trans)
 
 
-
-
-
-privKey_str = "3347abc7e2490f12b50e845668bd3f657252fbb698f5a205012a928fada44857"
-privKey = ed25519.SigningKey(binascii.unhexlify(privKey_str.encode()))
-pubKey = privKey.get_verifying_key()
-pubKey_str = pubKey.to_bytes().hex()
-platform_address = pubkey_to_address(pubKey_str)
-print(platform_address)
