@@ -96,9 +96,9 @@ def bits_to_target(bits: int):
 #     temp = file.read()
 #     print(len(temp))
 
-#=============================================================================
-block = getblock(1)
-print(block.getHash())
+# =============================================================================
+# block = getblock(1)
+# print(block.getHash())
 # with open('hahaha.txt', 'w+') as file:
 #     json.dump(block.toJSON(), file, sort_keys=True, indent= 4, separators=(', ', ': '))
 
@@ -170,10 +170,26 @@ def CKDpriv_hardened(k, c, i: int, n: int):
     return privKey, chaincode
 
 
-print(65535 * 2**224)
-temp = 65535 * 2**224
-print(len(hex(temp)))
-print(hex(temp))
+# print(65535 * 2**224)
+# temp = 65535 * 2**224
+# print(len(hex(temp)))
+# print(hex(temp))
 
-print(len(hex(bits_to_target(520159231))))
-print(len("ffff00000000000000000000000000000000000000000000000000000000"))
+# print(len(hex(bits_to_target(520159231))))
+# print(len("ffff00000000000000000000000000000000000000000000000000000000"))
+
+from hdwallet import HDWallet
+from hdwallet.utils import generate_entropy
+from hdwallet.symbols import BTC as SYMBOL
+
+STRENGTH: int = 128  # Default is 128
+LANGUAGE: str = "english"  # Default is english
+ENTROPY: str = generate_entropy(strength=STRENGTH)
+PASSPHRASE: str = None  # "meherett"
+
+print(ENTROPY)
+
+hd_wallet: HDWallet = HDWallet(symbol=SYMBOL, use_default_path=False)
+hd_wallet.from_entropy(
+    entropy=ENTROPY, language=LANGUAGE, passphrase=PASSPHRASE
+)

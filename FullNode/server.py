@@ -18,6 +18,7 @@ from bson import ObjectId
 
 
 
+
 def threaded_client(connection):
     while True:
         data = connection.recv(65536)
@@ -733,7 +734,7 @@ def hash(version, prevHash, merkleRoot, timeStamp, targetDiff, nonce):
 
 def genesis_block():
     transInput = []
-    transOutput = [TransactionOutput(1000000, "8qUAkic2cyxyNGvHhPtN9DdvQ3FsouzYe")]
+    transOutput = [TransactionOutput(1000000, "8qUAkic2cyxyNGvHhPtN9DdvQ3FsouzYe"), TransactionInput(1000000, "s44pNAueQYJPved5Ad9fkfJ1qkSr3hGV")]
     timeStamp = 1
 
     trans = Transaction(transInput, transOutput, timeStamp)

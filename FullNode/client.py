@@ -10,6 +10,7 @@ from itertools import repeat
 from functools import reduce
 from multiprocessing import Pool
 from bson import ObjectId
+from update_balance_from_blockchain import check_money_send_to_platform
 
 
 # def receiveAll(ClientSocket: socket.socket, n: int):
@@ -701,7 +702,7 @@ def mining() -> Block:
         list_ids = [x['_id'] for x in result]
         mydb['Mempool'].delete_many({"_id": {"$in": list_ids}})
 
-        #remove filed  "_id"
+        #remove field  "_id"
         for each in result:
             each.pop("_id", None)
         
@@ -732,6 +733,8 @@ def mining() -> Block:
             add_UTXO_to_address_index(new_block, height)
             add_tx_to_address_index(new_block, height)
             update_blockchain_info(height, new_block.hash, new_block.BlockHeader.targetDiff)
+
+            check_money_send_to_platform(new_block)
         
             print("new block mine successfuly")
             return new_block
