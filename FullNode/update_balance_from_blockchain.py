@@ -41,7 +41,7 @@ def create_hdwallet_from_entropy(entropy):
 
 
 def create_address_ed25519(hdwallet: HDWallet):
-    path = path_dir['lvcoin'] + random.randint(0, 2**32)
+    path = path_dir['lvcoin'] + str(random.randint(0, 2**32))
     hdwallet.from_path(path)
     privkey = hdwallet.private_key()
     hdwallet.clean_derivation()
@@ -188,3 +188,5 @@ def widthdrawn_money(amount, address):
 
 # address_ed25519 = pubkey_to_address(binascii.hexlify(pubkey_ed25519.to_bytes()).decode())
 # print(address_ed25519)
+
+print('0' + 0)
