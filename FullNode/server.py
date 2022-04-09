@@ -738,7 +738,7 @@ def hash(version, prevHash, merkleRoot, timeStamp, targetDiff, nonce):
 
 def genesis_block():
     transInput = []
-    transOutput = [TransactionOutput(1000000, "8qUAkic2cyxyNGvHhPtN9DdvQ3FsouzYe"), TransactionInput(1000000, "s44pNAueQYJPved5Ad9fkfJ1qkSr3hGV")]
+    transOutput = [TransactionOutput(1000000, "8qUAkic2cyxyNGvHhPtN9DdvQ3FsouzYe"), TransactionOutput(1000000, "s44pNAueQYJPved5Ad9fkfJ1qkSr3hGV")]
     timeStamp = 1
 
     trans = Transaction(transInput, transOutput, timeStamp)
