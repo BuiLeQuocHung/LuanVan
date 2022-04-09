@@ -8,7 +8,7 @@ from config import root_path
 
 
 path_dir = {
-    "lvcoin": "m/44'/0'/0'/0/"
+    "lvcoin": "m/44'/0'/0'/0/0"
 }
 
 def pubkey_to_address(pubkey: str):
@@ -28,7 +28,7 @@ def pubkey_to_address(pubkey: str):
 def create_hdwallet_from_entropy(entropy):
     STRENGTH: int = 128  # Default is 128
     LANGUAGE: str = "english"  # Default is english
-    ENTROPY: str = generate_entropy(strength=STRENGTH)
+    ENTROPY: str = entropy # generate_entropy(strength=STRENGTH)
     print(ENTROPY)
     PASSPHRASE: str = None  # "meherett"
 
@@ -41,7 +41,7 @@ def create_hdwallet_from_entropy(entropy):
 
 
 def create_address_ed25519(hdwallet: HDWallet):
-    path = path_dir['lvcoin'] + str(random.randint(0, 2**32))
+    path = path_dir['lvcoin']
     hdwallet.from_path(path)
     privkey = hdwallet.private_key()
     hdwallet.clean_derivation()
@@ -56,7 +56,7 @@ def create_address_ed25519(hdwallet: HDWallet):
 
 def add_address_to_firebase(address_ed25519, userID):
     ref = db.reference("/address/lvcoin")
-    ref.set({
+    ref.update({
         address_ed25519: userID
     })
 
@@ -105,7 +105,7 @@ def getblock(blockHeight: int) -> Block:
     # return Block.from_json(block_json)
     return block
 
-def get_addr_UTXO(collection_name: str, address: str):
+def get_addr_UTXO(address: str):
     {
         '_id': 123,
         'amount': 123,
@@ -177,7 +177,18 @@ def widthdrawn_money(amount, address):
         outputList.append(change_output)
 
     trans = Transaction(inputList, outputList, time.time())
+    trans = sign_transaction(trans)
     trans_to_mempool(trans)
+
+def sign_transaction(trans: Transaction):
+    privKey_str = "3347abc7e2490f12b50e845668bd3f657252fbb698f5a205012a928fada44857"
+    privKey = ed25519.SigningKey(binascii.unhexlify(privKey_str.encode()))
+
+    input_signature = privKey.sign(binascii.unhexlify(trans.hash.encode())).hex()
+    for input in trans.inputList:
+        input.signature = input_signature
+
+    return trans
 
 # privkey = '3347abc7e2490f12b50e845668bd3f657252fbb698f5a205012a928fada44857'
 # privkey_ed25519 = ed25519.SigningKey(binascii.unhexlify(privkey.encode()))
@@ -189,3 +200,31 @@ def widthdrawn_money(amount, address):
 # address_ed25519 = pubkey_to_address(binascii.hexlify(pubkey_ed25519.to_bytes()).decode())
 # print(address_ed25519)
 
+# print(path_dir['lvcoin'] + str(random.randint(0, 2**32)))
+# STRENGTH: int = 128  # Default is 128
+# LANGUAGE: str = "english"  # Default is english
+# ENTROPY: str = '6638700249c70859f1d4398d552e7ba7' # generate_entropy(strength=STRENGTH)
+# print('entropy: ', ENTROPY)
+# PASSPHRASE: str = None  # "meherett"
+
+# hd_wallet: HDWallet = HDWallet(symbol=SYMBOL, use_default_path=False)
+# hd_wallet.from_entropy(
+#     entropy=ENTROPY, language=LANGUAGE, passphrase=PASSPHRASE
+# )
+
+# print(hd_wallet.path())
+
+# path = path_dir['lvcoin'] + str(random.randint(0, 2**32))
+# hd_wallet.from_path(path)
+# print(hd_wallet.path())
+# privkey = hd_wallet.private_key()
+# hd_wallet.clean_derivation()
+# print(hd_wallet.path())
+
+# privkey_ed25519 = ed25519.SigningKey(binascii.unhexlify(privkey.encode()))
+# # privkey_ed25519.get_verifying_key().to_bytes()
+# pubkey_ed25519 = privkey_ed25519.get_verifying_key()
+
+# address_ed25519 = pubkey_to_address(binascii.hexlify(pubkey_ed25519.to_bytes()).decode())
+
+# print("address: ", address_ed25519)
