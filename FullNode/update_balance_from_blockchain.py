@@ -50,7 +50,7 @@ def create_address_ed25519(hdwallet: HDWallet):
     # privkey_ed25519.get_verifying_key().to_bytes()
     pubkey_ed25519 = privkey_ed25519.get_verifying_key()
 
-    address_ed25519 = pubkey_to_address(pubkey_ed25519.to_bytes().decode())
+    address_ed25519 = pubkey_to_address(binascii.hexlify(pubkey_ed25519.to_bytes()).decode())
 
     return address_ed25519
 
