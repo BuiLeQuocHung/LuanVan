@@ -1,4 +1,5 @@
-import binascii, ed25519, hashlib, base58, ecdsa, time, random
+import binascii, ed25519, hashlib, base58, ecdsa, random
+import time as time_
 from hdwallet import HDWallet
 from hdwallet.utils import generate_entropy
 from hdwallet.symbols import BTC as SYMBOL
@@ -150,7 +151,7 @@ def widthdrawn_money(amount, address):
     privKey_str = "3347abc7e2490f12b50e845668bd3f657252fbb698f5a205012a928fada44857"
     privKey = ed25519.SigningKey(binascii.unhexlify(privKey_str.encode()))
     pubKey = privKey.get_verifying_key()
-    pubKey_str = pubKey.to_bytes().hex()
+    pubKey_str = binascii.hexlify(pubKey.to_bytes()).decode()
     platform_address = pubkey_to_address(pubKey_str)
 
     fee = 1
@@ -160,7 +161,7 @@ def widthdrawn_money(amount, address):
     address_UTXOs_info = get_addr_UTXO(platform_address)
     for UTXO_info in address_UTXOs_info:
         txid, idx = UTXO_info['_id'][:64], int(UTXO_info['_id'][64:])
-        inputAmount = UTXO_info['amount']
+        inputAmount = int(UTXO_info['amount'])
 
         newInput = TransactionInput(txid, idx, pubKey)
         inputList.append(newInput)
@@ -176,7 +177,7 @@ def widthdrawn_money(amount, address):
         change_output = TransactionOutput(change, platform_address)
         outputList.append(change_output)
 
-    trans = Transaction(inputList, outputList, time.time())
+    trans = Transaction(inputList, outputList, int(time_.time()))
     trans = sign_transaction(trans)
     trans_to_mempool(trans)
 
