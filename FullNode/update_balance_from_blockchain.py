@@ -189,4 +189,3 @@ def widthdrawn_money(amount, address):
 # address_ed25519 = pubkey_to_address(binascii.hexlify(pubkey_ed25519.to_bytes()).decode())
 # print(address_ed25519)
 
-print('0' + 0)
