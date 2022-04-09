@@ -1,4 +1,4 @@
-import binascii, ed25519, hashlib, base58, ecdsa, time
+import binascii, ed25519, hashlib, base58, ecdsa, time, random
 from hdwallet import HDWallet
 from hdwallet.utils import generate_entropy
 from hdwallet.symbols import BTC as SYMBOL
@@ -8,7 +8,7 @@ from config import root_path
 
 
 path_dir = {
-    "lvcoin": "m'/44'/0'/0'/0/0"
+    "lvcoin": "m/44'/0'/0'/0/"
 }
 
 def pubkey_to_address(pubkey: str):
@@ -41,12 +41,15 @@ def create_hdwallet_from_entropy(entropy):
 
 
 def create_address_ed25519(hdwallet: HDWallet):
-    hdwallet.from_path(path_dir['lvcoin'])
+    path = path_dir['lvcoin'] + random.randint(0, 2**32)
+    hdwallet.from_path(path)
     privkey = hdwallet.private_key()
     hdwallet.clean_derivation()
 
     privkey_ed25519 = ed25519.SigningKey(binascii.unhexlify(privkey.encode()))
+    # privkey_ed25519.get_verifying_key().to_bytes()
     pubkey_ed25519 = privkey_ed25519.get_verifying_key()
+
     address_ed25519 = pubkey_to_address(pubkey_ed25519.to_bytes().decode())
 
     return address_ed25519
@@ -176,4 +179,12 @@ def widthdrawn_money(amount, address):
     trans = Transaction(inputList, outputList, time.time())
     trans_to_mempool(trans)
 
+# privkey = '3347abc7e2490f12b50e845668bd3f657252fbb698f5a205012a928fada44857'
+# privkey_ed25519 = ed25519.SigningKey(binascii.unhexlify(privkey.encode()))
+# print(binascii.hexlify((privkey_ed25519.to_bytes())).decode())
+# # privkey_ed25519.get_verifying_key().to_bytes()
+# pubkey_ed25519 = privkey_ed25519.get_verifying_key()
+# print('pubkey ed25519: ', binascii.hexlify(pubkey_ed25519.to_bytes()).decode())
 
+# address_ed25519 = pubkey_to_address(binascii.hexlify(pubkey_ed25519.to_bytes()).decode())
+# print(address_ed25519)
