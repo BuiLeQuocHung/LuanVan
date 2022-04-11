@@ -51,6 +51,12 @@ def threaded_client(connection):
             amount, address = data_decode['param']
             widthdrawn_money(amount, address)
 
+        elif task == 'addressexist':
+            address = data_decode['param'][0]
+            isExist = address_exist(address)
+            connection.sendall(json.dumps(isExist).encode())
+            pass
+
         elif task == 'getblock':
             blockHeight = data_decode['param'][0]
             block = getblock(blockHeight)
@@ -114,6 +120,7 @@ def threaded_client(connection):
                         add_UTXO_to_address_index(block, blockchain_info['height'] + 1)
                         add_tx_to_address_index(block, blockchain_info['height'] + 1)
                         update_blockchain_info(blockchain_info['height'] + 1, block.hash, block.BlockHeader.targetDiff)
+                        update_used_address(block)
 
         elif task =='submittransaction':
             trans_json = data_decode['param'][0]
@@ -124,6 +131,11 @@ def threaded_client(connection):
 
 
     connection.close()
+
+def address_exist(address):
+    if mydb['UsedAddress'].find_one({'_id': address}):
+        return '1'
+    return '0'
 
 def trans_to_mempool(trans: Transaction):
     trans_json = trans.toJSONwithSignature()
@@ -954,6 +966,15 @@ def add_UTXO_to_address_index(block: Block, blockHeight: int):
 
             mydb['UserAddress'].update_one({"_id": address}, {"$set": {"list_UTXOs": result['list_UTXOs'], "list_trans": result['list_trans']}}, upsert=True)
 
+def update_used_address(block: Block):
+    transList = block.BlockBody.transList
+    for trans in transList:
+        for input_idx, input in enumerate(trans.inputList):
+            address = getTransOutput(input.txid, input.idx).recvAddress
+            UTXO_id = input.txid + str(input.idx)
+            UTXO_blockHeight = get_tran_index_info_parallel(input.txid)['blockHeight']
+
+            mydb['UsedAddress'].update_one({'_id': address}, {"$set": {"_id": address}}, upsert=True)
 
 
 if __name__ == "__main__":

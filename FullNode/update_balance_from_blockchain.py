@@ -163,7 +163,7 @@ def widthdrawn_money(amount, address):
         txid, idx = UTXO_info['_id'][:64], int(UTXO_info['_id'][64:])
         inputAmount = int(UTXO_info['amount'])
 
-        newInput = TransactionInput(txid, idx, pubKey)
+        newInput = TransactionInput(txid, idx, pubKey_str)
         inputList.append(newInput)
 
         totalInputAmount += inputAmount
@@ -176,6 +176,11 @@ def widthdrawn_money(amount, address):
     if change > 0:
         change_output = TransactionOutput(change, platform_address)
         outputList.append(change_output)
+
+    print('input list: ', inputList[0].toJSON())
+    for output in outputList:
+        print('output list: ', output.toJSON())
+   
 
     trans = Transaction(inputList, outputList, int(time_.time()))
     trans = sign_transaction(trans)

@@ -178,18 +178,20 @@ def CKDpriv_hardened(k, c, i: int, n: int):
 # print(len(hex(bits_to_target(520159231))))
 # print(len("ffff00000000000000000000000000000000000000000000000000000000"))
 
-from hdwallet import HDWallet
-from hdwallet.utils import generate_entropy
-from hdwallet.symbols import BTC as SYMBOL
+# from hdwallet import HDWallet
+# from hdwallet.utils import generate_entropy
+# from hdwallet.symbols import BTC as SYMBOL
 
-STRENGTH: int = 128  # Default is 128
-LANGUAGE: str = "english"  # Default is english
-ENTROPY: str = generate_entropy(strength=STRENGTH)
-PASSPHRASE: str = None  # "meherett"
+# STRENGTH: int = 128  # Default is 128
+# LANGUAGE: str = "english"  # Default is english
+# ENTROPY: str = generate_entropy(strength=STRENGTH)
+# PASSPHRASE: str = None  # "meherett"
 
-print(ENTROPY)
+# print(ENTROPY)
 
-hd_wallet: HDWallet = HDWallet(symbol=SYMBOL, use_default_path=False)
-hd_wallet.from_entropy(
-    entropy=ENTROPY, language=LANGUAGE, passphrase=PASSPHRASE
-)
+# hd_wallet: HDWallet = HDWallet(symbol=SYMBOL, use_default_path=False)
+# hd_wallet.from_entropy(
+#     entropy=ENTROPY, language=LANGUAGE, passphrase=PASSPHRASE
+# )
+
+print(json.dumps('1'))

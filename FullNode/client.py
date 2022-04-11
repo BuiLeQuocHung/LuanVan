@@ -733,6 +733,7 @@ def mining() -> Block:
             add_UTXO_to_address_index(new_block, height)
             add_tx_to_address_index(new_block, height)
             update_blockchain_info(height, new_block.hash, new_block.BlockHeader.targetDiff)
+            update_used_address(new_block)
 
             check_money_send_to_platform(new_block)
         
@@ -781,6 +782,7 @@ def synchronize(ClientSocket):
             if block != None:
                 del_tx_from_address_index(block)
                 undo_UTXO_from_address_index(block)
+                undo_used_address(block)
                 deleteBlock(i)
 
         #synchronize
@@ -797,6 +799,7 @@ def synchronize(ClientSocket):
                 add_UTXO_to_address_index(block, i)
                 add_tx_to_address_index(block, i)
                 update_blockchain_info(i, block.hash, block.BlockHeader.targetDiff)
+                update_used_address(block)
         
         print("finish synchronize")
 
@@ -933,6 +936,25 @@ def add_UTXO_to_address_index(block: Block, blockHeight: int):
 
             mydb['UserAddress'].update_one({"_id": address}, {"$set": {"list_UTXOs": result['list_UTXOs'], "list_trans": result['list_trans']}}, upsert=True)
 
+def update_used_address(block: Block):
+    transList = block.BlockBody.transList
+    for trans in transList:
+        for input_idx, input in enumerate(trans.inputList):
+            address = getTransOutput(input.txid, input.idx).recvAddress
+            UTXO_id = input.txid + str(input.idx)
+            UTXO_blockHeight = get_tran_index_info_parallel(input.txid)['blockHeight']
+
+            mydb['UsedAddress'].update_one({'_id': address}, {"$set": {"_id": address}}, upsert=True)
+
+def undo_used_address(block: Block):
+    transList = block.BlockBody.transList
+    for trans in transList:
+        for input_idx, input in enumerate(trans.inputList):
+            address = getTransOutput(input.txid, input.idx).recvAddress
+            UTXO_id = input.txid + str(input.idx)
+            UTXO_blockHeight = get_tran_index_info_parallel(input.txid)['blockHeight']
+
+            mydb['UsedAddress'].delete_one({'_id': address})
 
 if __name__ == "__main__":
     p = Pool(processes=2)

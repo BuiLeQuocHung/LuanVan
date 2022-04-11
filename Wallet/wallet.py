@@ -265,10 +265,10 @@ def create_new_wallet(wallet_name: str):
 
     data = {
         'mnemonic': mnemonic,
-        'derivation': derivation,
-        'acc_idx': acc_idx,
-        'addr_num': addr_num,
-        'addr_offset': addr_offset,
+        # 'derivation': derivation,
+        # 'acc_idx': acc_idx,
+        # 'addr_num': addr_num,
+        # 'addr_offset': addr_offset,
     }
     save_wallet(wallet_name, data)
     global current_wallet
@@ -327,10 +327,10 @@ def create_wallet_from_menemonic(wallet_name: str, mnemonic: str):
 
     data = {
         'mnemonic': mnemonic,
-        'derivation': derivation,
-        'acc_idx': acc_idx,
-        'addr_num': addr_num,
-        'addr_offset': addr_offset,
+        # 'derivation': derivation,
+        # 'acc_idx': acc_idx,
+        # 'addr_num': addr_num,
+        # 'addr_offset': addr_offset,
     }
 
     # global current_wallet
@@ -352,6 +352,7 @@ def create_wallet_from_menemonic(wallet_name: str, mnemonic: str):
     #     }
     # }
     save_wallet(wallet_name, data)
+    print(data)
     global current_wallet
     current_wallet = hd_wallet
     # current_wallet = {
@@ -394,9 +395,11 @@ def load_wallet(wallet_path: str):
     with open(wallet_path, "r+") as file:
         data = json.load(file)
 
+    addr_num = number_of_addr_to_gen(wallet_name, data['mnemonic'])
+
     hd_wallet_fact = HdWalletBipFactory(HdWalletBip44Coins.POLKADOT_ED25519_SLIP)
     hd_wallet = hd_wallet_fact.CreateFromMnemonic(wallet_name, data['mnemonic'])
-    hd_wallet.Generate(acc_idx=data['acc_idx'], change_idx=HdWalletBipChanges.CHAIN_EXT, addr_num=data['addr_num'], addr_off=data['addr_offset'])
+    hd_wallet.Generate(acc_idx=0, change_idx=HdWalletBipChanges.CHAIN_EXT, addr_num=addr_num, addr_off=0)
     
     global current_wallet
     current_wallet = hd_wallet
@@ -669,7 +672,7 @@ def main_window():
 
     while True:
         event, values = window.read(timeout= 3000)
-        print(event, values) #debug
+        # print(event, values) #debug
         if event in (None, 'Exit', 'Cancel'):
             break
             

@@ -1,7 +1,3 @@
 {
-    "acc_idx": 0, 
-    "addr_num": 30, 
-    "addr_offset": 0, 
-    "derivation": "m'/44'/354'", 
     "mnemonic": "ticket place behind fabric ranch interest winter join demand note transfer theme"
 }
