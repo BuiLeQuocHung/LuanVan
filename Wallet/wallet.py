@@ -23,6 +23,8 @@ host = '26.49.190.114'
 port = 12345
 
 current_wallet = None
+unused_address_idx = 0
+address_balance_list = None
 
 print('Waiting for connection')
 try:
@@ -120,15 +122,22 @@ def createTransaction(fee, outputList: list ):
 
     inputList = []
     totalInputAmount = 0
+
+    used_list = []
     
+    count = -1
     for key, value in current_wallet.GetData(HdWalletBipDataTypes.ADDRESS).ToDict().items():
+        count += 1
         privkey = value['raw_priv']
         pubkey = value['raw_compr_pub'][2:]
         address = pubkey_to_address(pubkey)
 
         address_UTXOs_info = get_addr_UTXO(address)
-        print('address: ', address)
-        print('address UTXO info: ', address_UTXOs_info)
+        # print('address: ', address)
+        # print('address UTXO info: ', address_UTXOs_info)
+
+        if address_UTXOs_info:
+            used_list.append(count)
         
         for UTXO_info in address_UTXOs_info:
             txid, idx = UTXO_info['_id'][:64], int(UTXO_info['_id'][64:])
@@ -145,20 +154,25 @@ def createTransaction(fee, outputList: list ):
         if totalInputAmount > totalOutputAmount + fee:
             break
 
-    print(fee)
-    print(totalInputAmount, totalOutputAmount)
+    # print(fee)
+    # print(totalInputAmount, totalOutputAmount)
 
     change = totalInputAmount - totalOutputAmount - fee
-    print(change)
+
     if change > 0:
         addrs_dict = current_wallet.GetData(HdWalletBipDataTypes.ADDRESS).ToDict()
-        random_number = random.randint(0, len(addrs_dict) - 1)
+
+        for idx, each in enumerate(filter_address('all', address_balance_list)):
+            if each[0] == 'unused' and idx not in used_list:
+                random_number = idx
+                break
+
         addr_dict = addrs_dict['address_{}'.format(random_number)]
         change_output = TransactionOutput(change, pubkey_to_address(addr_dict['raw_compr_pub'][2:]))
         outputList.append(change_output)
 
-    print(inputList)
-    print(outputList[0].toJSON())
+    # print(inputList)
+    # print(outputList[0].toJSON())
     
     transaction = Transaction( inputList, outputList, int(time_.time()))
     return transaction
@@ -212,7 +226,7 @@ def wallet_window():
 
 def create_new_wallet(wallet_name: str):
     acc_idx = 0
-    addr_num = 20
+    addr_num = 30
     addr_offset = 0
 
     hd_wallet_fact = HdWalletBipFactory(HdWalletBip44Coins.POLKADOT_ED25519_SLIP)
@@ -260,9 +274,48 @@ def create_new_wallet(wallet_name: str):
     global current_wallet
     current_wallet = hd_wallet
 
+def address_is_used(address):
+    data = transmitData('addressexist', [address])
+    ClientSocket.sendall(data.encode())
+    result = json.loads(ClientSocket.recv(1048576).decode())
+
+    if result == '1':
+        return True
+    else:
+        return False
+
+def number_of_addr_to_gen(wallet_name: str, mnemonic: str):
+
+    acc_idx = 0
+    addr_num = 200
+    addr_offset = 0
+
+    hd_wallet_fact = HdWalletBipFactory(HdWalletBip44Coins.POLKADOT_ED25519_SLIP)
+    hd_wallet = hd_wallet_fact.CreateFromMnemonic(wallet_name, mnemonic)
+    hd_wallet.Generate(acc_idx=acc_idx, change_idx=HdWalletBipChanges.CHAIN_EXT, addr_num=addr_num, addr_off=addr_offset)
+
+    idx = -1
+    count = 0
+    for key, value in hd_wallet.GetData(HdWalletBipDataTypes.ADDRESS).ToDict().items():
+        idx += 1
+
+        privkey = value['raw_priv']
+        pubkey = value['raw_compr_pub'][2:]
+        address = pubkey_to_address(pubkey)
+
+        if not address_is_used(address):
+            count += 1
+        else:
+            count = 0
+        if count == 20:
+            return idx
+    
+
+
 def create_wallet_from_menemonic(wallet_name: str, mnemonic: str):
     acc_idx = 0
-    addr_num = 20
+    addr_num = number_of_addr_to_gen(wallet_name, mnemonic)
+    print('addr_num: ', addr_num)
     addr_offset = 0
 
     hd_wallet_fact = HdWalletBipFactory(HdWalletBip44Coins.POLKADOT_ED25519_SLIP)
@@ -413,10 +466,16 @@ def update_address_balance():
     wallet_balance = 0
 
     result = []
-    for address in list_address:
+    for idx, address in enumerate(list_address):
         amount = get_balance(address)
         wallet_balance += amount
-        result.append( [address, amount] )
+
+        if address_is_used(address):
+            typ = 'used'
+        else:
+            typ = 'unused'
+
+        result.append( [typ, address, amount] )
     
     return result, wallet_balance
 
@@ -529,15 +588,31 @@ def gettotalOutputAmount(outputList):
         amount += each[1]
     return amount
 
+def filter_address(address_type, address_balance_list):
+    used_list = [] # address_balance_list[0: unused_address_idx]
+    unused_list = [] # address_balance_list[unused_address_idx:]
+
+    for each in address_balance_list:
+        if each[0] == 'used':
+            used_list.append(each)
+        else:
+            unused_list.append(each)
+
+    if address_type == 'all':
+        return address_balance_list
+    elif address_type == 'used':
+        return used_list
+    elif address_type == 'unused':
+        return unused_list
+
 def main_window():
+    global address_balance_list
     list_output = []
     address_balance_list, wallet_balance = update_address_balance()
 
     global list_trans_json
     list_trans_json = get_wallet_trans_history()
     history_info = trans_history_summary_info(list_trans_json)
-    
-    
 
     menu_def = [['File', ['Recently Open', 'Open', 'New','Close']] , ['Wallet',['Infomation']]]
 
@@ -553,7 +628,8 @@ def main_window():
     ]
 
     address_layout = [
-        [sg.Table(address_balance_list, headings=['address', 'balance'], max_col_width=35,
+        [sg.Combo(['all', 'unused', 'used'], default_value='all', size=(20, 6), key="-ADDRESS-TYPE-", enable_events=True)],
+        [sg.Table(address_balance_list, headings=['type', 'address', 'balance'], max_col_width=35,
                     auto_size_columns=True, justification='left', 
                     num_rows=5, key="-ADDRESS-TABLE-",
                     expand_x=True, expand_y=True,
@@ -593,9 +669,12 @@ def main_window():
 
     while True:
         event, values = window.read(timeout= 3000)
-        # print(event, values) #debug
+        print(event, values) #debug
         if event in (None, 'Exit', 'Cancel'):
             break
+            
+        elif event == '-ADDRESS-TYPE-':
+            window["-ADDRESS-TABLE-"].update(filter_address(values['-ADDRESS-TYPE-'], address_balance_list))
         
         elif event == '-CREATE-OUTPUT-':
             output = create_output_window()
@@ -620,7 +699,7 @@ def main_window():
         
         elif event == 'Control-C' and values["-ADDRESS-TABLE-"]:
             row = int( values["-ADDRESS-TABLE-"][0])
-            address = address_balance_list[row][0] #get address
+            address = filter_address(values['-ADDRESS-TYPE-'], address_balance_list)[row][1] #get address
             pyperclip.copy(address)
 
         elif event == "Infomation":
@@ -628,7 +707,7 @@ def main_window():
         
         elif event == '-REFRESH-ADDR-TABLE-':
             address_balance_list, wallet_balance = update_address_balance()
-            window["-ADDRESS-TABLE-"].update(address_balance_list)
+            window["-ADDRESS-TABLE-"].update(filter_address(values['-ADDRESS-TYPE-'], address_balance_list))
             window['-WALLET-BALANCE-'].update(wallet_balance)
 
         elif event == '-REFRESH-HISTORY-TABLE-':
@@ -653,7 +732,7 @@ def main_window():
 
 
         address_balance_list, wallet_balance = update_address_balance()
-        window["-ADDRESS-TABLE-"].update(address_balance_list)
+        window["-ADDRESS-TABLE-"].update(filter_address(values['-ADDRESS-TYPE-'], address_balance_list))
         window['-WALLET-BALANCE-'].update(wallet_balance)
 
         list_trans_json = get_wallet_trans_history()
