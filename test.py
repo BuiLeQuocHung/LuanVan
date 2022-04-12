@@ -1,7 +1,12 @@
+import random
 import hdwallet
+import numpy as np
 from FullNode.Structure.Block import *
 import os
+import time as time_
 from FullNode.config import *
+from FullNode.DatabaseConnect.connect_database import *
+import matplotlib.pyplot as plt
 
 def getBlockCluster(blockHeight):
     return blockHeight // 100
@@ -10,12 +15,12 @@ def getblock(blockHeight: int) -> Block:
     blockDataPath =  os.path.join(root_path, 'BlockData')
     blockClusterPath = os.path.join(blockDataPath, 'Cluster') + str(getBlockCluster(blockHeight))
 
-    if not os.path.exists(blockClusterPath):
-        return None
+    # if not os.path.exists(blockClusterPath):
+    #     return None
 
     blockPath = blockClusterPath + '/' + '{}.txt'.format(blockHeight)
-    if not os.path.exists(blockPath):
-        return None
+    # if not os.path.exists(blockPath):
+    #     return None
     
     with open(blockPath, 'rb') as file:
         # block_json = json.load(file)
@@ -97,7 +102,39 @@ def bits_to_target(bits: int):
 #     print(len(temp))
 
 # =============================================================================
-# block = getblock(1)
+block_time = []
+db_time = []
+
+for i in range(101):
+    total = 0
+    for n in range (7):
+        rand = random.randint(0, 6)
+        start_time = time_.time()
+        block = getblock(rand)
+        end_time = time_.time()
+        total += end_time - start_time
+    block_time.append(total)
+
+    total = 0
+    for n in range (7):
+        rand = random.randint(0, 6)
+        start_time = time_.time()
+        mydb['Block'].find_one({'blockHeight': rand})
+        end_time = time_.time()
+        total += end_time - start_time
+    db_time.append(total)
+
+print(block_time)
+print(db_time)
+
+x_axis = np.arange(1,101)
+print(x_axis)
+plt.scatter(x_axis, block_time[1:], label = 'file access')
+plt.scatter(x_axis, db_time[1:], label = 'NoSQL access')
+
+plt.legend()
+plt.show()
+
 # print(block.getHash())
 # with open('hahaha.txt', 'w+') as file:
 #     json.dump(block.toJSON(), file, sort_keys=True, indent= 4, separators=(', ', ': '))
@@ -194,4 +231,3 @@ def CKDpriv_hardened(k, c, i: int, n: int):
 #     entropy=ENTROPY, language=LANGUAGE, passphrase=PASSPHRASE
 # )
 
-print(json.dumps('1'))

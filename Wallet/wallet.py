@@ -315,7 +315,6 @@ def number_of_addr_to_gen(wallet_name: str, mnemonic: str):
 def create_wallet_from_menemonic(wallet_name: str, mnemonic: str):
     acc_idx = 0
     addr_num = number_of_addr_to_gen(wallet_name, mnemonic)
-    print('addr_num: ', addr_num)
     addr_offset = 0
 
     hd_wallet_fact = HdWalletBipFactory(HdWalletBip44Coins.POLKADOT_ED25519_SLIP)
@@ -608,6 +607,21 @@ def filter_address(address_type, address_balance_list):
     elif address_type == 'unused':
         return unused_list
 
+def refresh_wallet():
+    global current_wallet
+    mnemonic = current_wallet.GetData(HdWalletBipDataTypes.MNEMONIC)
+    wallet_name = current_wallet.GetData(HdWalletBipDataTypes.WALLET_NAME)
+
+    acc_idx = 0
+    addr_num = number_of_addr_to_gen(wallet_name, mnemonic)
+    addr_offset = 0
+
+    hd_wallet_fact = HdWalletBipFactory(HdWalletBip44Coins.POLKADOT_ED25519_SLIP)
+    hd_wallet = hd_wallet_fact.CreateFromMnemonic(wallet_name, mnemonic)
+    hd_wallet.Generate(acc_idx=acc_idx, change_idx=HdWalletBipChanges.CHAIN_EXT, addr_num=addr_num, addr_off=addr_offset)
+    
+    current_wallet = hd_wallet
+
 def main_window():
     global address_balance_list
     list_output = []
@@ -671,7 +685,7 @@ def main_window():
     window.bind("<Control-C>", "Control-C")
 
     while True:
-        event, values = window.read(timeout= 3000)
+        event, values = window.read(timeout= 5000)
         # print(event, values) #debug
         if event in (None, 'Exit', 'Cancel'):
             break
@@ -742,6 +756,7 @@ def main_window():
         history_info = trans_history_summary_info(list_trans_json)
         window['-HISTORY-TABLE-'].update(history_info)
 
+        refresh_wallet()
 
 def main():
     result = wallet_window()
