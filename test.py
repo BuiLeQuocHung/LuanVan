@@ -78,7 +78,8 @@ def bits_to_target(bits: int):
     coefficient = int.from_bytes(bits_bytes[1:], 'big')
     return coefficient * 256 ** (exponent - 3)
 
-# block_1 = getblock(1)
+block_2 = getblock(2)
+print(block_2.toJSON())
 
 # # with open('hahaha.txt', 'w+') as file:
 # #     json.dump(block_1.toJSON(), file, sort_keys=True, indent= 4, separators=(', ', ': '))
@@ -102,38 +103,38 @@ def bits_to_target(bits: int):
 #     print(len(temp))
 
 # =============================================================================
-block_time = []
-db_time = []
+# block_time = []
+# db_time = []
 
-for i in range(101):
-    total = 0
-    for n in range (7):
-        rand = random.randint(0, 6)
-        start_time = time_.time()
-        block = getblock(rand)
-        end_time = time_.time()
-        total += end_time - start_time
-    block_time.append(total)
+# for i in range(21):
+#     total = 0
+#     for n in range (10):
+#         rand = n # random.randint(0, 6)
+#         start_time = time_.time()
+#         block = getblock(rand)
+#         end_time = time_.time()
+#         total += end_time - start_time
+#     block_time.append(total)
 
-    total = 0
-    for n in range (7):
-        rand = random.randint(0, 6)
-        start_time = time_.time()
-        mydb['Block'].find_one({'blockHeight': rand})
-        end_time = time_.time()
-        total += end_time - start_time
-    db_time.append(total)
+#     total = 0
+#     for n in range (10):
+#         rand = n # random.randint(0, 6)
+#         start_time = time_.time()
+#         mydb['Block'].find_one({'blockHeight': rand})
+#         end_time = time_.time()
+#         total += end_time - start_time
+#     db_time.append(total)
 
-print(block_time)
-print(db_time)
+# print(block_time)
+# print(db_time)
 
-x_axis = np.arange(1,101)
-print(x_axis)
-plt.scatter(x_axis, block_time[1:], label = 'file access')
-plt.scatter(x_axis, db_time[1:], label = 'NoSQL access')
+# x_axis = np.arange(1,21)
+# print(x_axis)
+# plt.scatter(x_axis, block_time[1:], label = 'file access')
+# plt.scatter(x_axis, db_time[1:], label = 'NoSQL access')
 
-plt.legend()
-plt.show()
+# plt.legend()
+# plt.show()
 
 # print(block.getHash())
 # with open('hahaha.txt', 'w+') as file:
@@ -231,3 +232,37 @@ def CKDpriv_hardened(k, c, i: int, n: int):
 #     entropy=ENTROPY, language=LANGUAGE, passphrase=PASSPHRASE
 # )
 
+def writeblock(block: Block, blockHeight: int):
+    blockDataPath = os.path.join(root_path, "TestJson")
+    blockClusterPath = os.path.join(blockDataPath, 'Cluster') + str(getBlockCluster(blockHeight))
+
+    if not os.path.exists(blockClusterPath):
+        os.makedirs(blockClusterPath)
+
+    blockPath = blockClusterPath + '/' + '{}.txt'.format(blockHeight)
+
+    #write block data
+    with open(blockPath, 'w+') as file:
+        json.dump(block.toJSON(), file, indent= 4, separators=(', ', ': '))
+
+
+# for i in range(10):
+#     block = getblock(i)
+#     print(type(block.toJSON()))
+#     writeblock(block, i)
+
+
+# a = '  '
+# print(a.encode().hex())
+
+
+# b = '002f0001280100000000001a387155416b696332637978794e4776486850744e394464765133\
+# 46736f757a5965622eed5300da01b1c3832647141083836bfffee723d1d96e481a202a34e1cb\
+# d58358b6a4be8740000bd40d3e8b63678b9d9a6e51a5a57f23a8df0fb4fc9f31ce2e3685223c\
+# 562cf295eb6b771202f47767324dcc09875688c85fe6c5cbdc88c3cc929f3357b1c6bdf4cd93\
+# 2af1d2b0aaeb7126350577e3dfa94ce0ea7c01712bdbc79495047f3060c0228010000000007d\
+# 03945776945794745584664447969415955685851346b363975704d45536d6f7153280100000\
+# 00f3a6f357244474455624a5634757932436a665a506852317539487a4e44706a6f545a56622\
+# eed44'
+
+# print(len(b))

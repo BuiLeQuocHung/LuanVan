@@ -14,8 +14,9 @@ class BlockHeader:
     targetDiff: int
     nonce: int
 
-    def __init__(self,version, prevHash, merkleRoot, timeStamp, targetDiff, nonce):
+    def __init__(self,version, height, prevHash, merkleRoot, timeStamp, targetDiff, nonce):
         self.version = version
+        self.height = height
         self.prevHash = prevHash
         self.merkleRoot = merkleRoot
         self.timeStamp  = timeStamp 
@@ -25,6 +26,7 @@ class BlockHeader:
     def toJSON(self):
         return {
             'version': self.version,
+            'height': self.height,
             'prevHash': self.prevHash,
             'merkleRoot': self.merkleRoot,
             'timeStamp': self.timeStamp ,
@@ -39,17 +41,19 @@ class BlockHeader:
     @staticmethod
     def from_json(header_json):
         version = header_json["version"]
+        height = header_json['height']
         prevHash = header_json["prevHash"]
         merkleRoot = header_json["merkleRoot"]
         timeStamp  = header_json["timeStamp"] 
         targetDiff = header_json["targetDiff"]
         nonce = header_json["nonce"]
-        return BlockHeader(version, prevHash, merkleRoot, timeStamp, targetDiff, nonce)
+        return BlockHeader(version, height, prevHash, merkleRoot, timeStamp, targetDiff, nonce)
 
     def to_binary(self):
         byte_array = bytearray()
 
         version_bytes = int.to_bytes(self.version, 4, 'big') # 4 bytes
+        height_bytes = int.to_bytes(self.height, 4, 'big') # 4 bytes
         prevhash_bytes = binascii.unhexlify(self.prevHash.encode()) # 32 bytes
         merkleroot_bytes = binascii.unhexlify(self.merkleRoot.encode()) # 32 bytes
         timestamp_bytes = int.to_bytes(self.timeStamp, 4, 'big') # 4 bytes
@@ -57,6 +61,7 @@ class BlockHeader:
         nonce = int.to_bytes(self.nonce, 4, 'big') # 4 bytes
 
         byte_array.extend(version_bytes)
+        byte_array.extend(height_bytes)
         byte_array.extend(prevhash_bytes)
         byte_array.extend(merkleroot_bytes)
         byte_array.extend(timestamp_bytes)
@@ -70,6 +75,8 @@ class BlockHeader:
         checkpoint = 0
         version = int.from_bytes(blockheader_bytes[checkpoint: checkpoint + 4], 'big')
         checkpoint += 4
+        height = int.from_bytes(blockheader_bytes[checkpoint: checkpoint + 4], 'big')
+        checkpoint += 4
         prevHash = blockheader_bytes[checkpoint: checkpoint + 32].hex()
         checkpoint += 32
         merkleRoot = blockheader_bytes[checkpoint: checkpoint + 32].hex()
@@ -81,7 +88,7 @@ class BlockHeader:
         nonce = int.from_bytes(blockheader_bytes[checkpoint: checkpoint + 4], 'big')
         checkpoint += 4
 
-        return BlockHeader(version, prevHash, merkleRoot, timeStamp, targetDiff, nonce)
+        return BlockHeader(version, height, prevHash, merkleRoot, timeStamp, targetDiff, nonce)
 
 class BlockBody:
     def __init__(self, transList):
@@ -193,8 +200,8 @@ class Block:
     def from_binary(block_bytes):
         
         checkpoint = 0
-        header = BlockHeader.from_binary(block_bytes[checkpoint: checkpoint + 80])
-        checkpoint += 80
+        header = BlockHeader.from_binary(block_bytes[checkpoint: checkpoint + 84])
+        checkpoint += 84
         body = BlockBody.from_binary(block_bytes[checkpoint:])
 
         return Block(header, body)

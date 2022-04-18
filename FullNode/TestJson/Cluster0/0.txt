@@ -1,0 +1,30 @@
+{
+    "header": {
+        "version": 1, 
+        "prevHash": "0000000000000000000000000000000000000000000000000000000000000000", 
+        "merkleRoot": "04298885f93e0b6b6f13c498fbca48524f90e815af0ed8e8a550b799178d05b7", 
+        "timeStamp": 1, 
+        "targetDiff": 520159231, 
+        "nonce": 14628
+    }, 
+    "body": {
+        "transactions": [
+            {
+                "txin": [], 
+                "txout": [
+                    {
+                        "amount": 1000000, 
+                        "recvAddress": "8qUAkic2cyxyNGvHhPtN9DdvQ3FsouzYe", 
+                        "script_type": 1
+                    }, 
+                    {
+                        "amount": 1000000, 
+                        "recvAddress": "s44pNAueQYJPved5Ad9fkfJ1qkSr3hGV", 
+                        "script_type": 1
+                    }
+                ], 
+                "time": 1
+            }
+        ]
+    }
+}

@@ -519,13 +519,13 @@ def validateAddress(address):
         return True
     return False
 
-def find_nonce(version, prevHash, merkleRoot, timeStamp, targetDiff):
+def find_nonce(version, height, prevHash, merkleRoot, timeStamp, targetDiff):
     nonce = 0
-    hash_value = hash(version, prevHash, merkleRoot, timeStamp, targetDiff, nonce)
+    hash_value = hash(version, height, prevHash, merkleRoot, timeStamp, targetDiff, nonce)
     while not check_proof_of_work(hash_value, targetDiff):
         nonce += 1
         # print("nonce: ", nonce)
-        hash_value = hash(version, prevHash, merkleRoot, timeStamp, targetDiff, nonce)
+        hash_value = hash(version, height, prevHash, merkleRoot, timeStamp, targetDiff, nonce)
     
     # print(str({
     #         'version': version,
@@ -538,9 +538,10 @@ def find_nonce(version, prevHash, merkleRoot, timeStamp, targetDiff):
     # print(hash_value)
     return nonce
 
-def hash(version, prevHash, merkleRoot, timeStamp, targetDiff, nonce):
+def hash(version, height, prevHash, merkleRoot, timeStamp, targetDiff, nonce):
     text = json.dumps({
             'version': version,
+            'height': height,
             'prevHash': prevHash,
             'merkleRoot': merkleRoot,
             'timeStamp': timeStamp ,
@@ -614,11 +615,10 @@ def create_new_block(list_trans: list):
     else:
         targetDiff = difficulty
 
-    nonce = find_nonce(version, prevHash, merkleRoot, timeStamp, targetDiff)
+    nonce = find_nonce(version, height + 1, prevHash, merkleRoot, timeStamp, targetDiff)
 
-    header = BlockHeader(version, prevHash, merkleRoot, timeStamp, targetDiff, nonce)
+    header = BlockHeader(version, height + 1, prevHash, merkleRoot, timeStamp, targetDiff, nonce)
     
-
     block = Block(header, body)
     print('block hash: ', block.getHash())
     # print("block header hash", block.BlockHeader.getHash())

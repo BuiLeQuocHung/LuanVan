@@ -14,8 +14,9 @@ class BlockHeader:
     targetDiff: int
     nonce: int
 
-    def __init__(self,version, prevHash, merkleRoot, timeStamp, targetDiff, nonce):
+    def __init__(self, version, height, prevHash, merkleRoot, timeStamp, targetDiff, nonce):
         self.version = version
+        self.height = height
         self.prevHash = prevHash
         self.merkleRoot = merkleRoot
         self.timeStamp  = timeStamp 
@@ -25,6 +26,7 @@ class BlockHeader:
     def toJSON(self):
         return {
             'version': self.version,
+            'height': self.height,
             'prevHash': self.prevHash,
             'merkleRoot': self.merkleRoot,
             'timeStamp': self.timeStamp ,
@@ -35,12 +37,13 @@ class BlockHeader:
     @staticmethod
     def from_json(header_json):
         version = header_json["version"]
+        height = header_json["height"]
         prevHash = header_json["prevHash"]
         merkleRoot = header_json["merkleRoot"]
         timeStamp  = header_json["timeStamp"] 
         targetDiff = header_json["targetDiff"]
         nonce = header_json["nonce"]
-        return BlockHeader(version, prevHash, merkleRoot, timeStamp, targetDiff, nonce)
+        return BlockHeader(version, height, prevHash, merkleRoot, timeStamp, targetDiff, nonce)
 
 class BlockBody:
     def __init__(self, transList):
