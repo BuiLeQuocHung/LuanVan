@@ -1,0 +1,12 @@
+{
+    "address": "GmhNDtSBeP5H4En651fWFnVB4s5qMznE5", 
+    "cosigner_addresses": [
+        "LsrJfqRs1RSLMimSdZyVRW5QGTXDiHVvm", 
+        "BX9GV3fbHBpAgX7yNakJgCyMLPyB5i7m1", 
+        "GmhNDtSBeP5H4En651fWFnVB4s5qMznE5"
+    ], 
+    "privkey": "6afbb4fc3b1dbf5b5a9d6eb8a0c84a4575971831cb1f3f0a338f62b4186ce60d", 
+    "pubkey": "4ee4492bfe5feaeb5d05a7c9658a9d7efbee44d1891a9b3c579e52dd0aebd523", 
+    "sigs_required": 2, 
+    "total_keys": 3
+}

@@ -218,6 +218,8 @@ def get_block_index_info(block_hash: str):
 
 def get_addr_UTXO_parallel(address: str):
     a = ['Chainstate0', 'Chainstate1', 'Chainstate2', 'Chainstate3']
+    # print('address: ', address)
+
     result =  list(reduce(lambda x,y : x + y,  p.starmap(get_addr_UTXO, zip(a, repeat(address))), []))
 
     #remove duplicate
@@ -240,7 +242,11 @@ def get_addr_UTXO(collection_name: str, address: str):
     #     result.append(record)
     # return result
 
+    
+
     addr_UTXOs_index = mydb['UserAddress'].find_one({'_id': address})
+    # if address == "53WcwymbzuqvULhvzUxNopdMDr1f6BXYB":
+    #     print(addr_UTXOs_index)
 
     result = []
     if addr_UTXOs_index == None:
@@ -255,11 +261,15 @@ def get_addr_UTXO(collection_name: str, address: str):
         block = getblock(blockHeight)
         # print(block.toJSON())
         for trans in block.BlockBody.transList:
+            # if address == "53WcwymbzuqvULhvzUxNopdMDr1f6BXYB":
+            #     print('trans hash: ', trans.hash)
             if trans.hash == trans_hash:
                 output_json = trans.outputList[idx].toJSON()
                 output_json['_id'] = UTXO_id
                 result.append(output_json)
                 break
+    # if address == "53WcwymbzuqvULhvzUxNopdMDr1f6BXYB":
+    #     print(result)
     return result
 
 def get_addr_trans_parallel(list_address):
@@ -514,7 +524,7 @@ def verify_block(block: Block):
             used_UTXOs.append(UTXO_id)
 
         if not verify_tx(trans):
-            print("here 3")
+            print("here -1")
             return False
 
         
@@ -633,6 +643,9 @@ def verify_tx(tran: Transaction):
 def verifyTransInput(input : TransactionInput, UTXOutput, tran_hash: str):
     if UTXOutput.script_type == ScriptType.P2PKH:
         return verifyP2PKH(input, UTXOutput, tran_hash)
+    
+    elif UTXOutput.script_type == ScriptType.P2MS:
+        return verifyP2MS(input, tran_hash)
 
     return False
 
@@ -652,7 +665,6 @@ def verifyP2PKH(input : TransactionInput, UTXOutput, tran_hash: str):
     outputPublickeyHash = stack.pop()
     inputPublickeyHash = stack.pop()
     if inputPublickeyHash != outputPublickeyHash:
-        print('here 5')
         return False
     
     "OP_CHECKSIG"
@@ -670,6 +682,50 @@ def verifyP2PKH(input : TransactionInput, UTXOutput, tran_hash: str):
         print('here 6')
         return False
 
+def verifyP2MS(input: TransactionInput, tran_hash: str):
+    list_pubkeys = input.publicKey.split(' ')
+    list_sigs = input.signature.split(' ')
+
+    if len(list_pubkeys) != len(list_sigs):
+        return False
+
+    tx_hash = input.txid
+    idx = int(input.idx)
+
+    UTXOutput = getUTXO(tx_hash, idx)
+    script = UTXOutput.recvAddress.split(' ')
+    sigs_required = int(script[0])
+    total_keys = int(script[1])
+    list_addresses = script[2:]
+
+    if sigs_required > len(list_pubkeys):
+        return False
+
+    count_sigs = 0
+    for i in range(sigs_required):
+        pubkey = list_pubkeys[i]
+        pubkey_addr = pubkey_to_address(pubkey)
+
+        for address in list_addresses:
+            if pubkey_addr == address:
+                list_addresses.remove(address)
+                break
+        else:
+            return False
+
+        publickeyObject = ed25519.VerifyingKey(binascii.unhexlify(pubkey.encode()))
+        sig = list_sigs[i]
+        try:
+            publickeyObject.verify(binascii.unhexlify(sig.encode()), binascii.unhexlify(tran_hash.encode()))
+            count_sigs += 1
+        except:
+            return False
+    
+    if count_sigs >= sigs_required:
+        return True
+    
+    return False
+    
 
 # private_key = "18E14A7B6A307F426A94F8114701E7C8E774E7F9A47E2C2035DB29A206321725"
 # public_key = "0450863ad64a87ae8a2fe83c1af1a8403cb53f53e486d8511dad8a04887e5b23522cd470243453a299fa9e77237716103abc11a1df38855ed6f2ee187e9c582ba6"
@@ -772,11 +828,12 @@ def genesis_block():
     # print("block header hash", block.BlockHeader.getHash())
     # print("int of hash: ", int.from_bytes(binascii.unhexlify(block.hash.encode()), "big"))
     # print("target Difficulty: ", bits_to_target(block.BlockHeader.targetDiff))
-
+    print(block.toJSON())
     writeblock(block, 0)
     add_UTXO_to_address_index(block, 0)
     add_tx_to_address_index(block, 0)
     update_blockchain_info(0, block.hash, block.BlockHeader.targetDiff)
+    update_used_address(block)
 
 def get_fee(list_trans: list):
     inputAmount = 0

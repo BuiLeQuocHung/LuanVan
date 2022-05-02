@@ -33,7 +33,7 @@ except socket.error as e:
     print(str(e))
 
 
-def create_output_window():
+def create_P2PKH_output_window():
     output_layout = [
         [sg.Text('Receiver address', size=20), sg.Input(key='receiver-address')],
         [sg.Text('Amount', size=20), sg.Input(key='amount')],
@@ -46,6 +46,7 @@ def create_output_window():
         event, values = create_output_window.read()
         # print(event, values) #debug
         if event in (None, 'Exit', 'Cancel'):
+            create_output_window.close()
             return None
 
         elif event == 'add':
@@ -53,10 +54,31 @@ def create_output_window():
             address = values['receiver-address']
             if amount > 0 and validateAddress(address):
                 create_output_window.close()
-                return [address, amount]
+                return [address, amount, ScriptType.P2PKH]
     
-    
+def create_P2MS_output_window():
+    output_layout = [
+        [sg.Text('Multisig cript', size=20), sg.Input(key='-MULTISIG-SCRIPT-')],
+        [sg.Text('Amount', size=20), sg.Input(key='amount')],
+        [sg.Button('Add', key='add')]
+    ]
 
+    create_output_window = sg.Window('Wallet', output_layout, modal=True)
+
+    while True:
+        event, values = create_output_window.read()
+        # print(event, values) #debug
+        if event in (None, 'Exit', 'Cancel'):
+            create_output_window.close()
+            return None
+
+        elif event == 'add':
+            amount = int(values['amount'])
+            address = values['-MULTISIG-SCRIPT-']
+            if amount > 0:
+                break
+    create_output_window.close()
+    return [address, amount, ScriptType.P2MS]
 
 def get_addr_UTXO(address) -> list:
     data = transmitData('getaddressUTXO', [address])
@@ -116,9 +138,9 @@ def createTransaction(fee, outputList: list ):
     # outputList : [[address, amount], ...]
     totalOutputAmount = 0
     for each in outputList:
-        totalOutputAmount += each[1] # [address, amount]
+        totalOutputAmount += each[1] # [address, amount, script_type]
     
-    outputList = list(map(lambda x: TransactionOutput(x[1], x[0]), outputList))
+    outputList = list(map(lambda x: TransactionOutput(x[1], x[0], x[2]), outputList))
 
     inputList = []
     totalInputAmount = 0
@@ -188,7 +210,7 @@ def sign_transaction(transaction: Transaction):
 def get_correspond_privatekey(public_key: str):
     for key, value in current_wallet.GetData(HdWalletBipDataTypes.ADDRESS).ToDict().items():
         if value['raw_compr_pub'][2:] == public_key:
-            print('corrspond private key: ', value['raw_priv'])
+            # print('corrspond private key: ', value['raw_priv'])
             return value['raw_priv']
 
 def wallet_window():
@@ -215,11 +237,19 @@ def wallet_window():
                 break
 
         elif event == "-CREATE-WALLET-":
-            _, _, filenames = list(os.walk('wallets'))[0]
+            temp =  list(os.walk('wallets'))
+            print(temp)
+            if temp != []:
+                _, _, filenames = temp[0]
+            else:
+                filenames = []
+
+            print(filenames)
             if values['-WALLET-NAME-'] != '' and '{}.txt'.format(values['-WALLET-NAME-']) not in filenames:
                 type_of_wallet(values['-WALLET-NAME-'])
                 result = "new wallet"
-                break
+            
+            break
     
     window.close()
     return result
@@ -370,7 +400,7 @@ def type_of_wallet(wallet_name: str):
     window = sg.Window("LV-Wallet", wallet_type_layout)
     while True:
         event, values = window.read()
-        print(event, values) #debug
+        # print(event, values) #debug
         if event in (None, 'Exit', 'Cancel'):
             break
         elif event =='-NEXT-':
@@ -520,7 +550,6 @@ def wallet_info_window():
     wallet_info_layout = [
         [sg.Text('Wallet name:', size=(20,)), sg.Text(wallet_name)],
         [sg.Text('Script type:', size=(20,)), sg.Text('P2PKH')],
-        [sg.Text('Seed standard', size=(20,)), sg.Text('Bip39')],
         [sg.Text('Mnemonic')],
         [sg.Multiline(mnemonic, size=(30, 5), expand_x=True)]
     ]
@@ -531,6 +560,8 @@ def wallet_info_window():
         event, values = window.read()
         if event in (None, 'Exit', 'Cancel'):
             break
+    
+    window.close()
 
 def get_trans_info(trans_hash):
     data = transmitData('getTransInfo', [trans_hash])
@@ -541,9 +572,92 @@ def get_trans_info(trans_hash):
 def get_output_amount(trans: Transaction):
     amount = 0
     for output in trans.outputList:
-        amount += output.amount
+        if output.recvAddress not in addr_list():
+            amount += output.amount
     
     return amount
+
+def addr_list():
+    addrs_dict = current_wallet.GetData(HdWalletBipDataTypes.ADDRESS).ToDict()
+    list_address = [ pubkey_to_address(addrs_dict[each]['raw_compr_pub'][2:]) for each in addrs_dict]
+    return list_address
+
+def show_signed_transaction(trans: Transaction):
+    amount_sent = 0
+    fee = 0
+
+    for output in trans.outputList:
+        if output.recvAddress not in addr_list():
+            amount_sent += output.amount
+        else:
+            fee += output.amount
+    
+    is_sign = False
+    for each in trans.inputList:
+        if each.signature == None:
+            is_sign = False
+            break
+        else:
+            is_sign = True
+
+    status_text = 'Signed' if is_sign else  'Unsigned'
+
+    # for each in trans.inputList:
+    #     print(each.toJSON())
+
+    return_result = None
+
+    inputs = [[each.txid, each.idx] for each in trans.inputList]
+    outputs = [[each.recvAddress, each.amount] for each in trans.outputList]
+
+    trans_detail_layout = [
+        [sg.Text('Txid: {}'.format(trans.hash))],
+        [sg.Text('Status: {}'.format(status_text), key= '-STATUS-')],
+        [sg.Text('Fee: {}'.format(fee))],
+        [sg.Text('Sent Amount: {}'.format(amount_sent))],
+
+        [sg.Text('Input')],
+        [sg.Table(inputs, ['txid', 'idx'],  max_col_width=55,
+                    auto_size_columns=True, justification='left', 
+                    num_rows=5, key="-TRANS-INPUTS-TABLE-",
+                    expand_x=True)],
+
+        [sg.Text('Output')],
+        [sg.Table(outputs, ['receiver', 'amount'],  max_col_width=55,
+                    auto_size_columns=True, justification='left', 
+                    num_rows=5, key="-TRANS-OUTPUTS-TABLE-",
+                    expand_x=True)],
+        
+        [sg.Button('Sign', key='-SIGN-'), sg.Button('Send', key='-SEND-')]
+    ]
+
+    window = sg.Window('Transaction', trans_detail_layout)
+
+    sign_trans = None
+
+    while True:
+        event, values = window.read()
+        print(event, values)
+        if event in (None, 'Exit', 'Cancel'):
+            return_result = 'Close'
+            break
+        
+        elif event == '-SIGN-':
+            if not is_sign:
+                sign_trans = sign_transaction(trans)
+                is_sign = True
+                window["-STATUS-"].update('Status: Signed')
+        
+        elif event == '-SEND-':
+            if is_sign:
+                submitTransaction(sign_trans)
+                return_result = 'Sent'
+                break
+        
+        
+    
+    window.close()
+    return return_result
 
 def show_trans_detail(trans_hash):
     trans_info_json = get_trans_info(trans_hash)
@@ -563,14 +677,15 @@ def show_trans_detail(trans_hash):
         [sg.Text('Txid: {}'.format(trans_hash))],
         [sg.Text('Fee: {}'.format(inputAmount - outputAmount))],
         [sg.Text('Confirmation: {}'.format(confirmation))],
+        [sg.Text('Sent Amount: {}'.format(outputAmount))],
 
-        [sg.Text('Input: {}'.format(inputAmount))],
+        [sg.Text('Input')],
         [sg.Table(inputs, ['txid', 'idx'],  max_col_width=55,
                     auto_size_columns=True, justification='left', 
                     num_rows=5, key="-TRANS-INPUTS-TABLE-",
                     expand_x=True)],
 
-        [sg.Text('Output: {}'.format(outputAmount))],
+        [sg.Text('Output')],
         [sg.Table(outputs, ['receiver', 'amount'],  max_col_width=55,
                     auto_size_columns=True, justification='left', 
                     num_rows=5, key="-TRANS-OUTPUTS-TABLE-",
@@ -623,7 +738,7 @@ def refresh_wallet():
     current_wallet = hd_wallet
 
 def main_window():
-    global address_balance_list
+    global address_balance_list, list_output
     list_output = []
     address_balance_list, wallet_balance = update_address_balance()
 
@@ -632,6 +747,9 @@ def main_window():
     history_info = trans_history_summary_info(list_trans_json)
 
     menu_def = [['File', ['Recently Open', 'Open', 'New','Close']] , ['Wallet',['Infomation']]]
+
+    sign_trans = None
+    is_sign = False
 
     history_layout = [
         [sg.Table(history_info, headings=['date', 'txid', 'send amount'], max_col_width=55,
@@ -657,7 +775,7 @@ def main_window():
 
     send_layout = [
         [sg.Text('Fee'), sg.Input('0', key='-FEE-', expand_x=True)],
-        [sg.Table([], headings=['address', 'amount'], max_col_width=35,
+        [sg.Table([], headings=['script', 'amount'], max_col_width=35,
                     auto_size_columns=True, justification='left', 
                     num_rows=5, key="-OUTPUT-TABLE-",
                     expand_x=True, 
@@ -666,8 +784,8 @@ def main_window():
                     right_click_menu= ['Right', ['Delete']],
                     right_click_selects=True,
         )],
-        [sg.Button('Create output', key='-CREATE-OUTPUT-'), sg.Button('Clear', key='-CLEAR-')],
-        [sg.Button('Send', key='-SUBMIT-TRANSACTION-')],
+        [sg.Button('P2PKH output', key='-P2PKH-OUTPUT-'), sg.Button('P2MS output', key='-P2MS-OUTPUT-'), sg.Button('Clear', key='-CLEAR-')],
+        [sg.Button('Open', key='-OPEN-TRANSACTION-')],
     ]
 
     main_layout = [
@@ -693,22 +811,44 @@ def main_window():
         elif event == '-ADDRESS-TYPE-':
             window["-ADDRESS-TABLE-"].update(filter_address(values['-ADDRESS-TYPE-'], address_balance_list))
         
-        elif event == '-CREATE-OUTPUT-':
-            output = create_output_window()
+        elif event == '-P2PKH-OUTPUT-':
+            output = create_P2PKH_output_window()
             if output:
                 list_output.append(output)
                 window["-OUTPUT-TABLE-"].update(list_output)
 
-        elif event == '-SUBMIT-TRANSACTION-':
+        elif event == '-P2MS-OUTPUT-':
+            output = create_P2MS_output_window()
+            if output:
+                list_output.append(output)
+                window["-OUTPUT-TABLE-"].update(list_output)
+        
+        elif event == '-OPEN-TRANSACTION-':
             fee = int(values['-FEE-'])
             if validateAmountSpend(gettotalOutputAmount(list_output), fee, int(values['-WALLET-BALANCE-'])):
-                trans = createTransaction(fee, list_output)
-                trans = sign_transaction(trans)
-                submitTransaction(trans)
+                if sign_trans == None:
+                    sign_trans = createTransaction(fee, list_output)
+                
+                result = show_signed_transaction(sign_trans)
 
-            window['-FEE-'].update('')
-            list_output = []
-            window['-OUTPUT-TABLE-'].update(list_output)
+                if result == 'Sent':
+                    window['-FEE-'].update('')
+                    list_output = []
+                    window['-OUTPUT-TABLE-'].update(list_output)
+
+                    sign_trans = None
+                    is_sign = False
+
+        # elif event == '-SUBMIT-TRANSACTION-':
+        #     if sign_trans:
+        #         submitTransaction(sign_trans)
+
+        #     window['-FEE-'].update('')
+        #     list_output = []
+        #     window['-OUTPUT-TABLE-'].update(list_output)
+
+        #     sign_trans = None
+        #     is_sign = False
 
             # address_balance_list, wallet_balance = update_address_balance()
             # window["-ADDRESS-TABLE-"].update(address_balance_list)
@@ -757,6 +897,7 @@ def main_window():
         window['-HISTORY-TABLE-'].update(history_info)
 
         refresh_wallet()
+
 
 def main():
     result = wallet_window()

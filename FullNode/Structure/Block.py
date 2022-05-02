@@ -68,10 +68,13 @@ class BlockHeader:
         byte_array.extend(targetdiff_bytes)
         byte_array.extend(nonce)
 
+        # print('prevhash length: ', len(prevhash_bytes))
+        # print('merkkle length: ', len(merkleroot_bytes))
+        # print('block header length: ', len(byte_array))
         return bytes(byte_array)
 
     @staticmethod
-    def from_binary(blockheader_bytes):
+    def from_binary(blockheader_bytes: bytes):
         checkpoint = 0
         version = int.from_bytes(blockheader_bytes[checkpoint: checkpoint + 4], 'big')
         checkpoint += 4
@@ -88,6 +91,7 @@ class BlockHeader:
         nonce = int.from_bytes(blockheader_bytes[checkpoint: checkpoint + 4], 'big')
         checkpoint += 4
 
+        # print(BlockHeader(version, height, prevHash, merkleRoot, timeStamp, targetDiff, nonce).toJSON())
         return BlockHeader(version, height, prevHash, merkleRoot, timeStamp, targetDiff, nonce)
 
 class BlockBody:
@@ -201,6 +205,7 @@ class Block:
         
         checkpoint = 0
         header = BlockHeader.from_binary(block_bytes[checkpoint: checkpoint + 84])
+        # print(header.toJSON())
         checkpoint += 84
         body = BlockBody.from_binary(block_bytes[checkpoint:])
 

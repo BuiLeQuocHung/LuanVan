@@ -14,7 +14,7 @@ class BlockHeader:
     targetDiff: int
     nonce: int
 
-    def __init__(self, version, height, prevHash, merkleRoot, timeStamp, targetDiff, nonce):
+    def __init__(self,version, height, prevHash, merkleRoot, timeStamp, targetDiff, nonce):
         self.version = version
         self.height = height
         self.prevHash = prevHash
@@ -34,15 +34,64 @@ class BlockHeader:
             'nonce': self.nonce,
         }
 
+    def getHash(self):
+        text = json.dumps(self.toJSON()).encode()
+        return hashlib.sha256(text).hexdigest()
+
     @staticmethod
     def from_json(header_json):
         version = header_json["version"]
-        height = header_json["height"]
+        height = header_json['height']
         prevHash = header_json["prevHash"]
         merkleRoot = header_json["merkleRoot"]
         timeStamp  = header_json["timeStamp"] 
         targetDiff = header_json["targetDiff"]
         nonce = header_json["nonce"]
+        return BlockHeader(version, height, prevHash, merkleRoot, timeStamp, targetDiff, nonce)
+
+    def to_binary(self):
+        byte_array = bytearray()
+
+        version_bytes = int.to_bytes(self.version, 4, 'big') # 4 bytes
+        height_bytes = int.to_bytes(self.height, 4, 'big') # 4 bytes
+        prevhash_bytes = binascii.unhexlify(self.prevHash.encode()) # 32 bytes
+        merkleroot_bytes = binascii.unhexlify(self.merkleRoot.encode()) # 32 bytes
+        timestamp_bytes = int.to_bytes(self.timeStamp, 4, 'big') # 4 bytes
+        targetdiff_bytes = int.to_bytes(self.targetDiff, 4, 'big') # 4 bytes
+        nonce = int.to_bytes(self.nonce, 4, 'big') # 4 bytes
+
+        byte_array.extend(version_bytes)
+        byte_array.extend(height_bytes)
+        byte_array.extend(prevhash_bytes)
+        byte_array.extend(merkleroot_bytes)
+        byte_array.extend(timestamp_bytes)
+        byte_array.extend(targetdiff_bytes)
+        byte_array.extend(nonce)
+
+        # print('prevhash length: ', len(prevhash_bytes))
+        # print('merkkle length: ', len(merkleroot_bytes))
+        # print('block header length: ', len(byte_array))
+        return bytes(byte_array)
+
+    @staticmethod
+    def from_binary(blockheader_bytes: bytes):
+        checkpoint = 0
+        version = int.from_bytes(blockheader_bytes[checkpoint: checkpoint + 4], 'big')
+        checkpoint += 4
+        height = int.from_bytes(blockheader_bytes[checkpoint: checkpoint + 4], 'big')
+        checkpoint += 4
+        prevHash = blockheader_bytes[checkpoint: checkpoint + 32].hex()
+        checkpoint += 32
+        merkleRoot = blockheader_bytes[checkpoint: checkpoint + 32].hex()
+        checkpoint += 32
+        timeStamp = int.from_bytes(blockheader_bytes[checkpoint: checkpoint + 4], 'big')
+        checkpoint += 4
+        targetDiff = int.from_bytes(blockheader_bytes[checkpoint: checkpoint + 4], 'big')
+        checkpoint += 4
+        nonce = int.from_bytes(blockheader_bytes[checkpoint: checkpoint + 4], 'big')
+        checkpoint += 4
+
+        # print(BlockHeader(version, height, prevHash, merkleRoot, timeStamp, targetDiff, nonce).toJSON())
         return BlockHeader(version, height, prevHash, merkleRoot, timeStamp, targetDiff, nonce)
 
 class BlockBody:
@@ -78,11 +127,41 @@ class BlockBody:
 
         return hash_list[0]
 
+    @staticmethod
     def from_json(body_json):
         transList = []
         for trans_json in body_json['transactions']:
             transList.append(Transaction.from_json(trans_json))
 
+        return BlockBody(transList)
+
+    def to_binary(self):
+        byte_array = bytearray()
+
+        # number_of_trans_bytes = int.to_bytes(len(self.transList), 2, 'big')
+        # byte_array.extend(number_of_trans_bytes)
+
+        for trans in self.transList:
+            trans_bytes = trans.to_binary()
+            byte_array.extend(int.to_bytes(len(trans_bytes), 2, 'big'))
+            byte_array.extend(trans_bytes)
+
+        return bytes(byte_array)
+
+    @staticmethod
+    def from_binary(blockbody_bytes):
+        checkpoint = 0
+        # len_translist = int.from_bytes(blockbody_bytes[checkpoint: checkpoint + 2], 'big')
+        # checkpoint += 2
+        transList = []
+        while checkpoint < len(blockbody_bytes):
+            trans_len = int.from_bytes(blockbody_bytes[checkpoint: checkpoint + 2], 'big')
+            checkpoint += 2
+            trans_bytes = blockbody_bytes[checkpoint: checkpoint + trans_len]
+            checkpoint += trans_len
+            trans = Transaction.from_binary(trans_bytes)
+            transList.append(trans)
+        
         return BlockBody(transList)
 
 
@@ -108,3 +187,28 @@ class Block:
         header = BlockHeader.from_json(block_json['header'])
         body = BlockBody.from_json(block_json['body'])
         return Block(header, body)
+
+    def to_binary(self):
+        byte_array = bytearray()
+
+        blockheader_bytes = self.BlockHeader.to_binary()
+        byte_array.extend(blockheader_bytes)
+
+        blockbody_bytes = self.BlockBody.to_binary()
+        byte_array.extend(blockbody_bytes)
+
+        return bytes(byte_array)
+        
+    
+    @staticmethod
+    def from_binary(block_bytes):
+        
+        checkpoint = 0
+        header = BlockHeader.from_binary(block_bytes[checkpoint: checkpoint + 84])
+        # print(header.toJSON())
+        checkpoint += 84
+        body = BlockBody.from_binary(block_bytes[checkpoint:])
+
+        return Block(header, body)
+        
+

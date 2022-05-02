@@ -1,0 +1,11 @@
+{
+    "address": "AjgZUaGZXne15rMxDUck42283UHup6mvb", 
+    "cosigner_addresses": [
+        "3zs9TWxcC5C96U8GmHBZB2tQHaKJnabmJ", 
+        "AjgZUaGZXne15rMxDUck42283UHup6mvb"
+    ], 
+    "privkey": "999e81f5f6fe901b317b2203575c9b0bd56581aa3db68bf2e9b6704bed76d8ea", 
+    "pubkey": "66dca29fdbc3948d01a63c5e852185110cbda534456278ccda80da3d1dab6708", 
+    "sigs_required": 2, 
+    "total_keys": 2
+}

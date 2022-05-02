@@ -78,8 +78,13 @@ def bits_to_target(bits: int):
     coefficient = int.from_bytes(bits_bytes[1:], 'big')
     return coefficient * 256 ** (exponent - 3)
 
-block_2 = getblock(2)
+block_2 = getblock(3)
 print(block_2.toJSON())
+
+a = "53WcwymbzuqvULhvzUxNopdMDr1f6BXYB"
+b = "53WcwymbzuqvULhvzUxNopdMDr1f6BXYB"
+
+print(a == b)
 
 # # with open('hahaha.txt', 'w+') as file:
 # #     json.dump(block_1.toJSON(), file, sort_keys=True, indent= 4, separators=(', ', ': '))
@@ -266,3 +271,47 @@ def writeblock(block: Block, blockHeight: int):
 # eed44'
 
 # print(len(b))
+
+
+# import ed25519
+
+# privKey_obj, pubKey_obj = ed25519.create_keypair()
+
+# privkey = privKey_obj.to_ascii(encoding='hex').decode('utf-8')
+# pubkey = pubKey_obj.to_ascii(encoding='hex').decode('utf-8')
+
+# print(privkey)
+
+# privkey_obj = ed25519.SigningKey(binascii.unhexlify(privkey.encode()))
+# privkey = privKey_obj.to_ascii(encoding='hex').decode('utf-8')
+# print(privkey)
+
+# print(len("e1bef18dd11829e9ca61661f5099b3c5f114247bcd03e6ad7e737665ec67f510"))
+# print(binascii.unhexlify("e1bef18dd11829e9ca61661f5099b3c5f114247bcd03e6ad7e737665ec67f510"))
+
+# publicKey = "e1bef18dd11829e9ca61661f5099b3c5f114247bcd03e6ad7e737665ec67f510 66dca29fdbc3948d01a63c5e852185110cbda534456278ccda80da3d1dab6708"
+# pubkey_bytes = binascii.unhexlify(publicKey.encode())
+
+# byte_array = bytearray()
+
+# temp = "e1bef18dd11829e9ca61661f5099b3c5f114247bcd03e6ad7e737665ec67f510".encode()
+# # print(len(temp))
+
+# byte_array.extend(int.to_bytes(len(temp), 2, 'big'))
+# byte_array.extend(temp)
+
+# byte_array.extend(int.to_bytes(4, 2, 'big'))
+
+# with open('hung123.txt', "wb+") as file:
+#     file.write(byte_array)
+
+
+with open('hung123.txt', "rb+") as file:
+    byte_array = file.read()
+
+    
+len_temp_bytes = int.from_bytes(byte_array[:2], 'big')
+abcd = byte_array[2:2+len_temp_bytes].decode()
+number = int.from_bytes(byte_array[2+len_temp_bytes:], 'big')
+
+print(abcd, number)

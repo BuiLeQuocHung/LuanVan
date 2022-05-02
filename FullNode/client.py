@@ -290,7 +290,7 @@ def writeUTXO(UTXO: TransactionOutput, tran_hash: str, idx: int, blockHeight: in
 
 def verify_block(block: Block):
     if len(block.BlockBody.transList) == 0:
-        print("here 1")
+        print("here 1 block")
         return False
 
     checkCoinbase = False
@@ -302,7 +302,7 @@ def verify_block(block: Block):
             if not checkCoinbase:
                 checkCoinbase = True
             else:
-                print("here 2")
+                print("here 2 block")
                 return False #only one coinbase per block
         
         for input in trans.inputList:
@@ -312,18 +312,18 @@ def verify_block(block: Block):
             used_UTXOs.append(UTXO_id)
 
         if not verify_tx(trans):
-            print("here 3")
+            print("here 3 block")
             return False
         
         
 
         
     if block.BlockBody.getHash() != block.BlockHeader.merkleRoot:
-        print("here 4")
+        print("here 4 block")
         return False
 
     if not check_proof_of_work(block.getHash(), block.BlockHeader.targetDiff):
-        print("here 5")
+        print("here 5 block")
         return False
     
     return True
@@ -399,7 +399,7 @@ def verify_tx(tran: Transaction):
     for input in tran.inputList:
         UTXOutput_info = get_UTXO_index_info_parallel(input.txid, input.idx)
         if not UTXOutput_info:
-            print('here 0')
+            print('here 0 tx')
             return False
 
         trans_hash = UTXOutput_info['_id'][:64]
@@ -408,17 +408,17 @@ def verify_tx(tran: Transaction):
         UTXOutput = getUTXO(trans_hash, idx)
 
         if not UTXOutput_info:
-            print('here 1')
+            print('here 1 tx')
             return False
 
         if UTXOutput_info['_id'] in UTXOutput_info_list:
-            print('here 2')
+            print('here 2 tx')
             return False
         
         UTXOutput_info_list.append(UTXOutput_info['_id'])
         
         if not verifyTransInput(input, UTXOutput, tran.hash):
-            print('here 3')
+            print('here 3 tx')
             return False
 
         inputAmount += UTXOutput.amount
@@ -428,7 +428,7 @@ def verify_tx(tran: Transaction):
         outputAmount += output.amount
     
     if outputAmount - inputAmount > 0:
-        print('here 4')
+        print('here 4 tx')
         return False
 
 
@@ -437,6 +437,9 @@ def verify_tx(tran: Transaction):
 def verifyTransInput(input : TransactionInput, UTXOutput, tran_hash: str):
     if UTXOutput.script_type == ScriptType.P2PKH:
         return verifyP2PKH(input, UTXOutput, tran_hash)
+    
+    elif UTXOutput.script_type == ScriptType.P2MS:
+        return verifyP2MS(input, tran_hash)
 
     return False
 
@@ -456,7 +459,7 @@ def verifyP2PKH(input : TransactionInput, UTXOutput, tran_hash: str):
     outputPublickeyHash = stack.pop()
     inputPublickeyHash = stack.pop()
     if inputPublickeyHash != outputPublickeyHash:
-        print('here 5')
+        print('here 1 P2PKH')
         return False
     
     "OP_CHECKSIG"
@@ -473,7 +476,51 @@ def verifyP2PKH(input : TransactionInput, UTXOutput, tran_hash: str):
     except:
         return False
 
+def verifyP2MS(input: TransactionInput, tran_hash: str):
+    list_pubkeys = input.publicKey.split(' ')
+    list_sigs = input.signature.split(' ')
 
+    if len(list_pubkeys) != len(list_sigs):
+        return False
+
+    tx_hash = input.txid
+    idx = int(input.idx)
+
+    UTXOutput = getUTXO(tx_hash, idx)
+    script = UTXOutput.recvAddress.split(' ')
+    sigs_required = int(script[0])
+    total_keys = int(script[1])
+    list_addresses = script[2:]
+
+    if sigs_required > len(list_pubkeys):
+        return False
+
+    count_sigs = 0
+    for i in range(sigs_required):
+        pubkey = list_pubkeys[i]
+        pubkey_addr = pubkey_to_address(pubkey)
+
+        for address in list_addresses:
+            if pubkey_addr == address:
+                list_addresses.remove(address)
+                break
+        else:
+            return False
+
+        publickeyObject = ed25519.VerifyingKey(binascii.unhexlify(pubkey.encode()))
+        sig = list_sigs[i]
+        try:
+            publickeyObject.verify(binascii.unhexlify(sig.encode()), binascii.unhexlify(tran_hash.encode()))
+            count_sigs += 1
+            if count_sigs >= sigs_required:
+                return True
+        except:
+            return False
+    
+    if count_sigs >= sigs_required:
+        return True
+    
+    return False
 
 # private_key = "18E14A7B6A307F426A94F8114701E7C8E774E7F9A47E2C2035DB29A206321725"
 # public_key = "0450863ad64a87ae8a2fe83c1af1a8403cb53f53e486d8511dad8a04887e5b23522cd470243453a299fa9e77237716103abc11a1df38855ed6f2ee187e9c582ba6"
