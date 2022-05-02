@@ -1,5 +1,5 @@
 import random
-import socket, ed25519, binascii, base58, time as time_, os, pyperclip, json
+import socket, ed25519, binascii, base58, time as time_, os, pyperclip, json, aes_cipher
 from config import *
 from Structure.Block import *
 from datetime import datetime
@@ -233,10 +233,11 @@ def import_key(wallet_name):
             pubkey_obj = privkey_obj.get_verifying_key()
             pubkey = pubkey_obj.to_ascii(encoding='hex').decode('utf-8')
             address = pubkey_to_address(pubkey)
-
+            result = 'success'
             break
 
     window.close()
+    return result
 
 def cosigners_window(number_keys):
     global cosigner_addresses
@@ -266,10 +267,48 @@ def cosigners_window(number_keys):
             for i in range(1, number_keys + 1):
                 cosigner_addresses.append(values['-COSIGNER{}-'.format(i)])
             
+            result = 'success'
             break
     
     window.close()
-    return
+    return result
+
+def password_window():
+    password_layout = [
+        [sg.Text('Password'), sg.Input('', key= '-PASSWORD-', expand_x=True)],
+        [sg.Button('Next', key="-NEXT-")]
+    ]
+
+    window = sg.Window('Encrypt Wallet', password_layout)
+
+    while True:
+        event, values = window.read()
+        if event in (None, 'Exit', 'Cancel'):
+            window.close()
+            return None
+
+        elif event == '-NEXT-':
+            break
+    
+    window.close()
+    return values['-PASSWORD-']
+
+def encrypte_wallet(password):
+    data = {
+        'privkey': privkey,
+        'pubkey': pubkey,
+        'address': address,
+        'cosigner_addresses': cosigner_addresses,
+        'total_keys': total_keys,
+        'sigs_required': sigs_required
+    }
+
+    data_encrypter = aes_cipher.DataEncrypter()
+    content = json.dumps(data)
+    data_encrypter.Encrypt(content, password, itr_num= 10)
+    enc_data = data_encrypter.GetEncryptedData().hex()
+    
+    return enc_data
 
 def create_multisig_wallet(wallet_name):
     create_wallet_layout = [
@@ -296,22 +335,32 @@ def create_multisig_wallet(wallet_name):
             wallet_type = "-NEW-WALLET-" if values["-NEW-WALLET-"] else "-IMPORT-KEY-"
             if wallet_type == '-NEW-WALLET-':
                 create_new_key(wallet_name)
+                result = cosigners_window(int(values['-NUMBER-OF-KEY-']))
+                if result == 'success':
+                    return result
                 
             elif wallet_type ==  "-IMPORT-KEY-":
-                import_key(wallet_name)
-            
-            cosigners_window(int(values['-NUMBER-OF-KEY-']))
-            return 'Success'
+                result = import_key(wallet_name)
+                if result == 'success':
+                    result = cosigners_window(int(values['-NUMBER-OF-KEY-']))
+                    if result == 'success':
+                        return result
 
     window.close()
-    return 'Exit'
+    return result
 
-def load_wallet(wallet_path):
+def load_wallet(wallet_path, password):
     global wallet_name
+    data_decrypter = aes_cipher.DataDecrypter()
+
     wallet_name = wallet_path.split('/')[-1].split('.')[0]
     with open(wallet_path, "r+") as file:
-        data = json.load(file)
+        content = binascii.unhexlify(file.read().encode())
+        data_decrypter.Decrypt(content, password, itr_num= 10)
+        dec_data = data_decrypter.GetDecryptedData()
     
+    data = json.loads(dec_data.decode())
+
     global privkey, pubkey, address, cosigner_addresses, total_keys, sigs_required
     privkey = data['privkey']
     pubkey = data['pubkey']
@@ -322,7 +371,7 @@ def load_wallet(wallet_path):
 
 def save_wallet(wallet_name, data):
     with open(wallet_path + f'/{wallet_name}.txt', "w+") as file:
-        json.dump(data, file, sort_keys=True, indent= 4, separators=(', ', ': '))
+        file.write(data)
 
 def start_wallet():
     start_layout = [
@@ -340,20 +389,18 @@ def start_wallet():
 
         elif event == "-OPEN-WALLET-":
             if values['-WALLET-PATH-'] != '':
-                load_wallet(values['-WALLET-PATH-'])
-                result = "open wallet"
+                while True:
+                    password = password_window()
+                    if not password:
+                        break
 
-                data = {
-                    'privkey': privkey,
-                    'pubkey': pubkey,
-                    'address': address,
-                    'cosigner_addresses': cosigner_addresses,
-                    'total_keys': total_keys,
-                    'sigs_required': sigs_required
-                }
-
-                # save_wallet(values['-WALLET-NAME-'], data)
-                break
+                    try:
+                        load_wallet(values['-WALLET-PATH-'], password)
+                        result = "open wallet"
+                        window.close()
+                        return result
+                    except:
+                        pass
 
         elif event == "-CREATE-WALLET-":
             temp =  list(os.walk('multisig_wallets'))
@@ -365,21 +412,18 @@ def start_wallet():
             if values['-WALLET-NAME-'] != '' and '{}.txt'.format(values['-WALLET-NAME-']) not in filenames:
                 global wallet_name
                 wallet_name = values['-WALLET-NAME-']
-                create_multisig_wallet(wallet_name)
-                result = "new wallet"
+                result = create_multisig_wallet(wallet_name)
+                if result == 'success':
+                    result = "new wallet"
 
-                data = {
-                    'privkey': privkey,
-                    'pubkey': pubkey,
-                    'address': address,
-                    'cosigner_addresses': cosigner_addresses,
-                    'total_keys': total_keys,
-                    'sigs_required': sigs_required
-                }
+                    password = password_window()
+                    while not password:
+                        password = password_window()
 
-                save_wallet(values['-WALLET-NAME-'], data)
-            
-                break
+                    enc_data = encrypte_wallet(password)
+                    save_wallet(values['-WALLET-NAME-'], enc_data)
+                    break
+
     window.close()
     return result
 
@@ -414,7 +458,7 @@ def wallet_info_window():
     wallet_info_layout = [
         [sg.Text('Wallet name:', size=(20,)), sg.Text(wallet_name)],
         [sg.Text('Script type:', size=(20,)), sg.Text('P2MS')],
-        [sg.Text('Locking Script:', size=(20,)), sg.Input(create_script(), readonly=True)],
+        [sg.Text('Locking Script:', size=(20,)), sg.Multiline(create_script())],
     ]
 
     window = sg.Window("LVWallet", wallet_info_layout)

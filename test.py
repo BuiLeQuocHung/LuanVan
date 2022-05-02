@@ -8,6 +8,8 @@ from FullNode.config import *
 from FullNode.DatabaseConnect.connect_database import *
 import matplotlib.pyplot as plt
 
+root_path = pathlib.Path(__file__).parent.resolve()
+
 def getBlockCluster(blockHeight):
     return blockHeight // 100
 
@@ -78,13 +80,10 @@ def bits_to_target(bits: int):
     coefficient = int.from_bytes(bits_bytes[1:], 'big')
     return coefficient * 256 ** (exponent - 3)
 
-block_2 = getblock(3)
-print(block_2.toJSON())
+# block_2 = getblock(3)
+# print(block_2.toJSON())
 
-a = "53WcwymbzuqvULhvzUxNopdMDr1f6BXYB"
-b = "53WcwymbzuqvULhvzUxNopdMDr1f6BXYB"
 
-print(a == b)
 
 # # with open('hahaha.txt', 'w+') as file:
 # #     json.dump(block_1.toJSON(), file, sort_keys=True, indent= 4, separators=(', ', ': '))
@@ -306,12 +305,104 @@ def writeblock(block: Block, blockHeight: int):
 #     file.write(byte_array)
 
 
-with open('hung123.txt', "rb+") as file:
-    byte_array = file.read()
+# with open('hung123.txt', "rb+") as file:
+#     byte_array = file.read()
 
     
-len_temp_bytes = int.from_bytes(byte_array[:2], 'big')
-abcd = byte_array[2:2+len_temp_bytes].decode()
-number = int.from_bytes(byte_array[2+len_temp_bytes:], 'big')
+# len_temp_bytes = int.from_bytes(byte_array[:2], 'big')
+# abcd = byte_array[2:2+len_temp_bytes].decode()
+# number = int.from_bytes(byte_array[2+len_temp_bytes:], 'big')
 
-print(abcd, number)
+# print(abcd, number)
+
+
+# from py_crypto_hd_wallet import HdWalletBip44Coins, HdWalletBipWordsNum, HdWalletBipLanguages,\
+#  HdWalletBipFactory, HdWalletBipDataTypes, HdWalletBipKeyTypes, HdWalletBipChanges
+
+# from py_crypto_hd_wallet import HdWalletBip44Coins, HdWalletBipFactory, HdWalletBipDataTypes, HdWalletBipChanges
+
+# acc_idx = 0
+# addr_num = 1
+# addr_offset = 0
+
+# hd_wallet_fact = HdWalletBipFactory(HdWalletBip44Coins.BITCOIN)
+
+
+# hd_wallet = hd_wallet_fact.CreateFromMnemonic('hung', "bulb announce inflict staff random pair culture unable uphold license reform alley")
+# hd_wallet.Generate(acc_idx=acc_idx, change_idx=HdWalletBipChanges.CHAIN_EXT, addr_num=addr_num, addr_off=addr_offset)
+
+# temp = hd_wallet.GetData(HdWalletBipDataTypes.ADDRESS)
+# print(temp.ToJson())
+
+
+
+
+# # Create factory
+# hd_wallet_fact = HdWalletBipFactory(HdWalletBip44Coins.BITCOIN)
+
+# # Create from private extended key
+# ex_key = "xprv9s21ZrQH143K26Q8C5MEpBr5uoyuCPxpaiut6LETHKbdrqSddRYyt3SCggQyDWZhQZ7SZ2YuKbUBC6ahvLtihvX6NYtVEjBLBytQW5YVPhk"
+# hd_wallet = hd_wallet_fact.CreateFromExtendedKey("my_wallet_name", ex_key)
+
+# hd_wallet.Generate(acc_idx=acc_idx, change_idx=HdWalletBipChanges.CHAIN_EXT, addr_num=addr_num, addr_off=addr_offset)
+# temp = hd_wallet.GetData(HdWalletBipDataTypes.ADDRESS)
+# print(temp.ToJson())
+
+import aes_cipher,json
+
+# start_time = time_.time()
+# data = json.dumps({ 
+#     "mnemonic":"bulb announce inflict staff random pair culture unable uphold license reform alley" 
+# })
+
+# print(data)
+
+# data_encrypter = aes_cipher.DataEncrypter()
+# data_encrypter.Encrypt(data, "hung123", itr_num= 10)
+# enc_data = data_encrypter.GetEncryptedData()
+
+# print('encrypted data', data)
+# print(time_.time() - start_time)
+
+# start_time = time_.time()
+# data_decrypter = aes_cipher.DataDecrypter()
+# data_decrypter.Decrypt(enc_data, "hung123", itr_num= 10)
+# dec_data = data_decrypter.GetDecryptedData()
+
+# print('decrypted data: ', dec_data.decode())
+# print(time_.time() - start_time)
+
+# result = json.loads(dec_data)
+# print(result)
+
+this_path = os.path.join(root_path, 'Wallet', 'multisig_wallets')
+
+# with open(os.path.join(this_path, 'wallet_{}.txt'.format(1)), 'r+') as file:
+#     content = json.load(file)
+
+# print(type(content))
+
+# data_encrypter = aes_cipher.DataEncrypter()
+# for i in range(1,6):
+#     with open(os.path.join(this_path, 'wallet_{}.txt'.format(i)), 'r+') as file:
+#         content = json.dumps(json.load(file))
+#         data_encrypter.Encrypt(content, 'hung', itr_num= 10)
+#         enc_data = data_encrypter.GetEncryptedData().hex()
+
+#     with open(os.path.join(this_path, 'wallet_{}.txt'.format(i)), 'w+') as file:
+#         file.write(enc_data)
+
+
+data_decrypter = aes_cipher.DataDecrypter()
+for i in range(1,6):
+    with open(os.path.join(this_path, 'wallet_{}.txt'.format(i)), 'r+') as file:
+        content = binascii.unhexlify(file.read().encode())
+        data_decrypter.Decrypt(content, 'hung', itr_num= 10)
+        dec_data = data_decrypter.GetDecryptedData()
+
+    temp = dec_data.decode()
+    print(type(temp))
+    print(json.loads(temp))
+
+    # with open(os.path.join(this_path, 'wallet_{}.txt'.format(i)), 'w+') as file:
+    #     file.write(dec_data)
