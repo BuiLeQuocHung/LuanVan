@@ -1,5 +1,5 @@
 import random
-import socket, ed25519, binascii, base58, time as time_, os, pyperclip, json
+import socket, ed25519, binascii, base58, time as time_, os, pyperclip, json, aes_cipher
 from config import *
 from Structure.Block import *
 from datetime import datetime
@@ -19,7 +19,7 @@ wallet_path = os.path.join(root_path, 'wallets')
 
 
 ClientSocket = socket.socket()
-host = '26.49.190.114'
+host = '192.168.11.115'
 port = 12345
 
 current_wallet = None
@@ -232,9 +232,19 @@ def wallet_window():
 
         elif event == "-OPEN-WALLET-":
             if values['-WALLET-PATH-'] != '':
-                current_wallet = load_wallet(values['-WALLET-PATH-'])
-                result = "open wallet"
-                break
+                while True:
+                    password = password_window()
+                    if not password:
+                        break
+                    
+                    try:
+                        current_wallet = load_wallet(values['-WALLET-PATH-'], password)
+                        result = "open wallet"
+                        window.close()
+                        return result
+                    except:
+                        pass
+
 
         elif event == "-CREATE-WALLET-":
             temp =  list(os.walk('wallets'))
@@ -248,11 +258,30 @@ def wallet_window():
             if values['-WALLET-NAME-'] != '' and '{}.txt'.format(values['-WALLET-NAME-']) not in filenames:
                 type_of_wallet(values['-WALLET-NAME-'])
                 result = "new wallet"
-            
-            break
+                break
     
     window.close()
     return result
+
+def password_window():
+    password_layout = [
+        [sg.Text('Password'), sg.Input('', key= '-PASSWORD-', expand_x=True)],
+        [sg.Button('Next', key="-NEXT-")]
+    ]
+
+    window = sg.Window('Encrypt Wallet', password_layout)
+
+    while True:
+        event, values = window.read()
+        if event in (None, 'Exit', 'Cancel'):
+            window.close()
+            return None
+
+        elif event == '-NEXT-':
+            break
+    
+    window.close()
+    return values['-PASSWORD-']
 
 def create_new_wallet(wallet_name: str):
     acc_idx = 0
@@ -295,14 +324,12 @@ def create_new_wallet(wallet_name: str):
 
     data = {
         'mnemonic': mnemonic,
-        # 'derivation': derivation,
-        # 'acc_idx': acc_idx,
-        # 'addr_num': addr_num,
-        # 'addr_offset': addr_offset,
     }
-    save_wallet(wallet_name, data)
+
     global current_wallet
     current_wallet = hd_wallet
+
+    return data
 
 def address_is_used(address):
     data = transmitData('addressexist', [address])
@@ -339,6 +366,15 @@ def number_of_addr_to_gen(wallet_name: str, mnemonic: str):
             count = 0
         if count == 20:
             return idx
+
+def encrypted_wallet(password, data):
+
+    data_encrypter = aes_cipher.DataEncrypter()
+    content = json.dumps(data)
+    data_encrypter.Encrypt(content, password, itr_num= 10)
+    enc_data = data_encrypter.GetEncryptedData().hex()
+    
+    return enc_data
     
 
 
@@ -356,10 +392,6 @@ def create_wallet_from_menemonic(wallet_name: str, mnemonic: str):
 
     data = {
         'mnemonic': mnemonic,
-        # 'derivation': derivation,
-        # 'acc_idx': acc_idx,
-        # 'addr_num': addr_num,
-        # 'addr_offset': addr_offset,
     }
 
     # global current_wallet
@@ -380,14 +412,11 @@ def create_wallet_from_menemonic(wallet_name: str, mnemonic: str):
     #         'mnemonic': mnemonic
     #     }
     # }
-    save_wallet(wallet_name, data)
-    print(data)
+
     global current_wallet
     current_wallet = hd_wallet
-    # current_wallet = {
-    #     'name': wallet_name,
-    #     'data': data
-    # }
+
+    return data
 
 def type_of_wallet(wallet_name: str):
     wallet_type = None
@@ -406,23 +435,44 @@ def type_of_wallet(wallet_name: str):
         elif event =='-NEXT-':
             wallet_type = "-NEW-WALLET-" if values["-NEW-WALLET-"] else "-FROM-MNEMONIC-"
             if wallet_type == "-NEW-WALLET-":
-                create_new_wallet(wallet_name)
+                data = create_new_wallet(wallet_name)
                 display_seed_window(current_wallet.GetData(HdWalletBipDataTypes.MNEMONIC))
-            
+                
+                password =  password_window()
+                while not password:
+                    password =  password_window()
+
+                enc_data = encrypted_wallet(password, data)
+
+                save_wallet(wallet_name, data)
+                break
+                
+
             elif wallet_type == "-FROM-MNEMONIC-":
                 mnemonic = input_seed_window()
                 if utils.is_mnemonic(mnemonic):
-                    create_wallet_from_menemonic(wallet_name, mnemonic)
+                    data = create_wallet_from_menemonic(wallet_name, mnemonic)
+                    password =  password_window()
+                    while not password:
+                        password =  password_window()
 
+                    enc_data = encrypted_wallet(password, data)
+                    save_wallet(wallet_name, data)
+                    break
 
-def save_wallet(wallet_name: str, data: dict):
+def save_wallet(wallet_name: str, data):
     with open(wallet_path + f'/{wallet_name}.txt', "w+") as file:
-        json.dump(data, file, sort_keys=True, indent= 4, separators=(', ', ': '))
+        file.write(data)
 
-def load_wallet(wallet_path: str):
+def load_wallet(wallet_path: str, password):
+    data_decrypter = aes_cipher.DataDecrypter()
     wallet_name = wallet_path.split('/')[-1].split('.')[0]
     with open(wallet_path, "r+") as file:
-        data = json.load(file)
+        content = binascii.unhexlify(file.read().encode())
+        data_decrypter.Decrypt(content, password, itr_num= 10)
+        dec_data = data_decrypter.GetDecryptedData()
+
+    data = json.loads(dec_data.decode())
 
     addr_num = number_of_addr_to_gen(wallet_name, data['mnemonic'])
 

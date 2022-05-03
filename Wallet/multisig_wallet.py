@@ -10,7 +10,7 @@ import PySimpleGUI as sg
 wallet_path = os.path.join(root_path, 'multisig_wallets')
 
 ClientSocket = socket.socket()
-host = '26.49.190.114'
+host = '192.168.11.115'
 port = 12345
 
 try:
@@ -293,7 +293,7 @@ def password_window():
     window.close()
     return values['-PASSWORD-']
 
-def encrypte_wallet(password):
+def encrypted_wallet(password):
     data = {
         'privkey': privkey,
         'pubkey': pubkey,
@@ -420,7 +420,7 @@ def start_wallet():
                     while not password:
                         password = password_window()
 
-                    enc_data = encrypte_wallet(password)
+                    enc_data = encrypted_wallet(password)
                     save_wallet(values['-WALLET-NAME-'], enc_data)
                     break
 

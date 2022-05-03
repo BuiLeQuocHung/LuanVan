@@ -375,7 +375,7 @@ import aes_cipher,json
 # result = json.loads(dec_data)
 # print(result)
 
-this_path = os.path.join(root_path, 'Wallet', 'multisig_wallets')
+this_path = os.path.join(root_path, 'Wallet', 'wallets')
 
 # with open(os.path.join(this_path, 'wallet_{}.txt'.format(1)), 'r+') as file:
 #     content = json.load(file)
@@ -383,7 +383,7 @@ this_path = os.path.join(root_path, 'Wallet', 'multisig_wallets')
 # print(type(content))
 
 # data_encrypter = aes_cipher.DataEncrypter()
-# for i in range(1,6):
+# for i in range(1,3):
 #     with open(os.path.join(this_path, 'wallet_{}.txt'.format(i)), 'r+') as file:
 #         content = json.dumps(json.load(file))
 #         data_encrypter.Encrypt(content, 'hung', itr_num= 10)
@@ -394,7 +394,7 @@ this_path = os.path.join(root_path, 'Wallet', 'multisig_wallets')
 
 
 data_decrypter = aes_cipher.DataDecrypter()
-for i in range(1,6):
+for i in range(1,3):
     with open(os.path.join(this_path, 'wallet_{}.txt'.format(i)), 'r+') as file:
         content = binascii.unhexlify(file.read().encode())
         data_decrypter.Decrypt(content, 'hung', itr_num= 10)

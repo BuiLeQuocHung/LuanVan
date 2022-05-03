@@ -718,7 +718,7 @@ def isGenesisBlockExist():
 
 def connectPeer():
     ClientSocket = socket.socket()
-    host = '26.202.89.163'
+    host = '192.168.11.130'
     port = 12345
 
     print('Trying to connect')
@@ -1039,9 +1039,11 @@ if __name__ == "__main__":
                 ClientSocket.sendall(data.encode())
         
         if now_time - last_synchronize_time > 10 and isConnected:
-            synchronize(ClientSocket)
-            last_synchronize_time = now_time
-        
+            try:
+                synchronize(ClientSocket)
+                last_synchronize_time = now_time
+            except:
+                pass
         
 
 
