@@ -393,16 +393,46 @@ this_path = os.path.join(root_path, 'Wallet', 'wallets')
 #         file.write(enc_data)
 
 
-data_decrypter = aes_cipher.DataDecrypter()
-for i in range(1,3):
-    with open(os.path.join(this_path, 'wallet_{}.txt'.format(i)), 'r+') as file:
-        content = binascii.unhexlify(file.read().encode())
-        data_decrypter.Decrypt(content, 'hung', itr_num= 10)
-        dec_data = data_decrypter.GetDecryptedData()
+# data_decrypter = aes_cipher.DataDecrypter()
+# for i in range(1,3):
+#     with open(os.path.join(this_path, 'wallet_{}.txt'.format(i)), 'r+') as file:
+#         content = binascii.unhexlify(file.read().encode())
+#         data_decrypter.Decrypt(content, 'hung', itr_num= 10)
+#         dec_data = data_decrypter.GetDecryptedData()
 
-    temp = dec_data.decode()
-    print(type(temp))
-    print(json.loads(temp))
+#     temp = dec_data.decode()
+#     print(type(temp))
+#     print(json.loads(temp))
 
     # with open(os.path.join(this_path, 'wallet_{}.txt'.format(i)), 'w+') as file:
     #     file.write(dec_data)
+
+a = 0b10001
+b = 0b110000
+print(a, b)
+print(a * b)
+print(0x11b)
+def multiplicationGF256(c, d):
+    bin_c = bin(c)[2:]
+    e = 0
+    for i in range(len(bin_c)):
+        print('e: ', e)
+        e = (e << 1)
+        if e >= 2**8:
+            e ^= 0x11b
+
+        e ^= int(bin_c[i]) * d
+
+    if e >= 2**8 :
+        e ^= 0x11b
+
+    return e
+
+
+# print(multiplicationGF256(a,b))
+
+import time
+a = '123423423422342'
+start_time = time.time()
+temp = hashlib.sha256(a.encode()).hexdigest()
+print(time.time() - start_time)

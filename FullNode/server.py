@@ -11,9 +11,6 @@ from update_balance_from_blockchain import add_new_address, widthdrawn_money
 from itertools import repeat
 from functools import reduce
 from multiprocessing import Pool, Process
-from bson import ObjectId
-
-
 
 
 
@@ -1038,7 +1035,7 @@ def update_used_address(block: Block):
 
 if __name__ == "__main__":
     ServerSocket = socket.socket()
-    host = '192.168.11.115'
+    host = '192.168.49.37'
     port = 12345
     ThreadCount = 0
     try:
