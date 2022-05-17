@@ -8,7 +8,7 @@ from FullNode.config import *
 from FullNode.DatabaseConnect.connect_database import *
 import matplotlib.pyplot as plt
 
-root_path = pathlib.Path(__file__).parent.resolve()
+# root_path = pathlib.Path(__file__).parent.resolve()
 
 def getBlockCluster(blockHeight):
     return blockHeight // 100
@@ -80,8 +80,8 @@ def bits_to_target(bits: int):
     coefficient = int.from_bytes(bits_bytes[1:], 'big')
     return coefficient * 256 ** (exponent - 3)
 
-# block_2 = getblock(3)
-# print(block_2.toJSON())
+block_13 = getblock(13)
+print(block_13.toJSON())
 
 
 
@@ -107,38 +107,38 @@ def bits_to_target(bits: int):
 #     print(len(temp))
 
 # =============================================================================
-# block_time = []
-# db_time = []
+block_time = []
+db_time = []
 
-# for i in range(21):
-#     total = 0
-#     for n in range (10):
-#         rand = n # random.randint(0, 6)
-#         start_time = time_.time()
-#         block = getblock(rand)
-#         end_time = time_.time()
-#         total += end_time - start_time
-#     block_time.append(total)
+for i in range(21):
+    total = 0
+    for n in range (10):
+        rand = n # random.randint(0, 6)
+        start_time = time_.time()
+        block = getblock(rand)
+        end_time = time_.time()
+        total += end_time - start_time
+    block_time.append(total)
 
-#     total = 0
-#     for n in range (10):
-#         rand = n # random.randint(0, 6)
-#         start_time = time_.time()
-#         mydb['Block'].find_one({'blockHeight': rand})
-#         end_time = time_.time()
-#         total += end_time - start_time
-#     db_time.append(total)
+    total = 0
+    for n in range (10):
+        rand = n # random.randint(0, 6)
+        start_time = time_.time()
+        mydb['Block'].find_one({'blockHeight': rand})
+        end_time = time_.time()
+        total += end_time - start_time
+    db_time.append(total)
 
-# print(block_time)
-# print(db_time)
+print(block_time)
+print(db_time)
 
-# x_axis = np.arange(1,21)
-# print(x_axis)
-# plt.scatter(x_axis, block_time[1:], label = 'file access')
-# plt.scatter(x_axis, db_time[1:], label = 'NoSQL access')
+x_axis = np.arange(1,21)
+print(x_axis)
+plt.scatter(x_axis, block_time[1:], label = 'File access')
+plt.scatter(x_axis, db_time[1:], label = 'Database access')
 
-# plt.legend()
-# plt.show()
+plt.legend()
+plt.show()
 
 # print(block.getHash())
 # with open('hahaha.txt', 'w+') as file:
@@ -431,8 +431,8 @@ def multiplicationGF256(c, d):
 
 # print(multiplicationGF256(a,b))
 
-import time
-a = '123423423422342'
-start_time = time.time()
-temp = hashlib.sha256(a.encode()).hexdigest()
-print(time.time() - start_time)
+# import time
+# a = '123423423422342'
+# start_time = time.time()
+# temp = hashlib.sha256(a.encode()).hexdigest()
+# print(time.time() - start_time)

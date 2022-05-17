@@ -20,7 +20,7 @@ wallet_path = os.path.join(root_path, 'wallets')
 
 ClientSocket = socket.socket()
 host = '192.168.1.14'
-port = 12345
+port = 50000
 
 current_wallet = None
 unused_address_idx = 0
@@ -265,7 +265,7 @@ def wallet_window():
 
 def password_window():
     password_layout = [
-        [sg.Text('Password'), sg.Input('', key= '-PASSWORD-', expand_x=True)],
+        [sg.Text('Password'), sg.Input('', key= '-PASSWORD-', password_char='*', expand_x=True)],
         [sg.Button('Next', key="-NEXT-")]
     ]
 
@@ -444,7 +444,7 @@ def type_of_wallet(wallet_name: str):
 
                 enc_data = encrypted_wallet(password, data)
 
-                save_wallet(wallet_name, data)
+                save_wallet(wallet_name, enc_data)
                 break
                 
 
@@ -457,7 +457,7 @@ def type_of_wallet(wallet_name: str):
                         password =  password_window()
 
                     enc_data = encrypted_wallet(password, data)
-                    save_wallet(wallet_name, data)
+                    save_wallet(wallet_name, enc_data)
                     break
 
 def save_wallet(wallet_name: str, data):
@@ -613,6 +613,12 @@ def wallet_info_window():
     
     window.close()
 
+def get_trans_output(trans_hash, idx):
+    data = transmitData('getTransOutput', [trans_hash, idx])
+    ClientSocket.sendall(data.encode())
+    trans_output_json = json.loads(ClientSocket.recv(1048576).decode())
+    return TransactionOutput.from_json(trans_output_json)
+
 def get_trans_info(trans_hash):
     data = transmitData('getTransInfo', [trans_hash])
     ClientSocket.sendall(data.encode())
@@ -636,11 +642,20 @@ def show_signed_transaction(trans: Transaction):
     amount_sent = 0
     fee = 0
 
+    outputAmount = 0
     for output in trans.outputList:
+        print(output.amount)
         if output.recvAddress not in addr_list():
             amount_sent += output.amount
-        else:
-            fee += output.amount
+        outputAmount += output.amount
+
+    
+    inputAmount = 0
+    for each in trans.inputList:
+        trans_output = get_trans_output(each.txid, each.idx)
+        inputAmount += trans_output.amount
+    
+    fee = inputAmount - outputAmount
     
     is_sign = False
     for each in trans.inputList:
@@ -649,6 +664,8 @@ def show_signed_transaction(trans: Transaction):
             break
         else:
             is_sign = True
+
+    
 
     status_text = 'Signed' if is_sign else  'Unsigned'
 
@@ -694,13 +711,13 @@ def show_signed_transaction(trans: Transaction):
         
         elif event == '-SIGN-':
             if not is_sign:
-                sign_trans = sign_transaction(trans)
+                trans = sign_transaction(trans)
                 is_sign = True
                 window["-STATUS-"].update('Status: Signed')
         
         elif event == '-SEND-':
             if is_sign:
-                submitTransaction(sign_trans)
+                submitTransaction(trans)
                 return_result = 'Sent'
                 break
         
@@ -876,13 +893,13 @@ def main_window():
         elif event == '-OPEN-TRANSACTION-':
             fee = int(values['-FEE-'])
             if validateAmountSpend(gettotalOutputAmount(list_output), fee, int(values['-WALLET-BALANCE-'])):
-                if sign_trans == None:
-                    sign_trans = createTransaction(fee, list_output)
+
+                sign_trans = createTransaction(fee, list_output)
                 
                 result = show_signed_transaction(sign_trans)
 
                 if result == 'Sent':
-                    window['-FEE-'].update('')
+                    window['-FEE-'].update('0')
                     list_output = []
                     window['-OUTPUT-TABLE-'].update(list_output)
 
@@ -936,6 +953,10 @@ def main_window():
         elif event == '-CLEAR-':
             list_output = []
             window['-OUTPUT-TABLE-'].update(list_output)
+
+            window['-FEE-'].update('0')
+            sign_trans = None
+            is_sign = False
 
 
         address_balance_list, wallet_balance = update_address_balance()

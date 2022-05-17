@@ -718,23 +718,22 @@ def isGenesisBlockExist():
 
 def connectPeer():
     ClientSocket = socket.socket()
-    host = '192.168.49.223'
-    port = 12345
+    host = '192.168.1.16'
+    port = 50000
 
-    print('Trying to connect')
+    # print('Trying to connect')
     try:
         ClientSocket.connect((host, port))
         return ClientSocket
     except socket.error as e:
-        print("server is not online")
+        # print("no peer found")
         return None
 
 def checkIsConnected(ClientSocket: socket.socket):
-    data = transmitData('ping', [])
-    ClientSocket.sendall(data.encode())
-    ClientSocket.settimeout(5)
-
     try:
+        data = transmitData('ping', [])
+        ClientSocket.sendall(data.encode())
+        ClientSocket.settimeout(5)
         ClientSocket.recv(65536)
         return True
     except socket.timeout:
@@ -835,8 +834,11 @@ def synchronize(ClientSocket):
         #synchronize
         for i in range(sync_start_height, peer_blockchain_info['height'] + 1):
             data = transmitData('getblock', [i])
-            ClientSocket.sendall(data.encode())
-            block_json = json.loads(ClientSocket.recv(65536).decode())
+            try:
+                ClientSocket.sendall(data.encode())
+                block_json = json.loads(ClientSocket.recv(65536).decode())
+            except:
+                return
             block = Block.from_json(block_json)
             print("block hash: ", block.hash)
             print("verify block: ", verify_block(block))
@@ -854,7 +856,10 @@ def del_tx_from_address_index(block: Block):
     transList = block.BlockBody.transList
     for trans in transList:
         for input in trans.inputList:
-            address = pubkey_to_address(input.publicKey)
+            if len(input.publicKey.split(' ')) > 1:
+                address = getTransOutput(input.txid, input.idx).recvAddress
+            else:
+                address = pubkey_to_address(input.publicKey)
 
             result = mydb['UserAddress'].find_one({"_id": address})
             
@@ -872,7 +877,10 @@ def add_tx_to_address_index(block: Block, blockHeight: int):
     transList = block.BlockBody.transList
     for trans in transList:
         for input in trans.inputList:
-            address = pubkey_to_address(input.publicKey)
+            if len(input.publicKey.split(' ')) > 1:
+                address = getTransOutput(input.txid, input.idx).recvAddress
+            else:
+                address = pubkey_to_address(input.publicKey)
 
             result = mydb['UserAddress'].find_one({"_id": address})
             if result == None:

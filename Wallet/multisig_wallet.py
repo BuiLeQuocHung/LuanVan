@@ -11,7 +11,7 @@ wallet_path = os.path.join(root_path, 'multisig_wallets')
 
 ClientSocket = socket.socket()
 host = '192.168.1.14'
-port = 12345
+port = 50000
 
 try:
     ClientSocket.connect((host, port))
@@ -275,7 +275,7 @@ def cosigners_window(number_keys):
 
 def password_window():
     password_layout = [
-        [sg.Text('Password'), sg.Input('', key= '-PASSWORD-', expand_x=True)],
+        [sg.Text('Password'), sg.Input('', key= '-PASSWORD-', password_char='*', expand_x=True)],
         [sg.Button('Next', key="-NEXT-")]
     ]
 
@@ -427,8 +427,14 @@ def start_wallet():
     window.close()
     return result
 
+def get_trans_output(trans_hash, idx):
+    data = transmitData('getTransOutput', [trans_hash, idx])
+    ClientSocket.sendall(data.encode())
+    trans_output_json = json.loads(ClientSocket.recv(1048576).decode())
+    return TransactionOutput.from_json(trans_output_json)
+
 def get_history_info():
-    data = transmitData('getaddressTransactions', [[address]])
+    data = transmitData('getaddressTransactions', [[create_script()]])
     ClientSocket.sendall(data.encode())
     result = json.loads(ClientSocket.recv(1048675).decode())
 
@@ -441,7 +447,8 @@ def trans_history_summary_info(list_trans_json):
         trans = Transaction.from_json(trans_json)
         send_amount = 0
         for trans_output in trans.outputList:
-            send_amount += trans_output.amount
+            if trans_output.recvAddress != create_script():
+                send_amount += trans_output.amount
 
         trans_date = datetime.fromtimestamp(trans.time)
         result.append( [trans_date, trans.hash, send_amount] )
@@ -482,18 +489,26 @@ def show_signed_transaction(trans: Transaction):
     amount_sent = 0
     fee = 0
     script = create_script()
+    outputAmount = 0
     for output in trans.outputList:
         if output.recvAddress != script:
             amount_sent += output.amount
-        else:
-            fee += output.amount
+        outputAmount += output.amount
+
+    
+    inputAmount = 0
+    for each in trans.inputList:
+        trans_output = get_trans_output(each.txid, each.idx)
+        inputAmount += trans_output.amount
+
+    fee = inputAmount - outputAmount
 
     is_sign = False
     for each in trans.inputList:
         if each.signature == None:
             is_sign = False
             break
-        elif address in each.signature.split(' '):
+        elif pubkey in each.publicKey.split(' '):
             is_sign = True
 
 
@@ -542,13 +557,13 @@ def show_signed_transaction(trans: Transaction):
         
         elif event == '-SIGN-':
             if not is_sign:
-                sign_trans = sign_transaction(trans)
+                trans = sign_transaction(trans)
                 is_sign = True
                 window['-STATUS-'].update('Status: Signed')
         
         elif event == '-SEND-':
             if is_sign:
-                submitTransaction(sign_trans)
+                submitTransaction(trans)
                 return_result = 'Sent'
                 break
     
@@ -688,9 +703,8 @@ def main_window():
                 window["-OUTPUT-TABLE-"].update(list_output)
 
         elif event == '-OPEN-TRANSACTION-':
-            if sign_trans == None:
-                fee = int(values['-FEE-'])
-                sign_trans = createTransaction(fee, list_output)
+            fee = int(values['-FEE-'])
+            sign_trans = createTransaction(fee, list_output)
 
         # if not is_sign:
         #     sign_trans = sign_transaction(sign_trans)
@@ -699,7 +713,7 @@ def main_window():
             result = show_signed_transaction(sign_trans)
 
             if result == 'Sent':
-                window['-FEE-'].update('')
+                window['-FEE-'].update('0')
                 list_output = []
                 window['-OUTPUT-TABLE-'].update(list_output)
 
@@ -722,6 +736,16 @@ def main_window():
 
                 list_output = update_list_output(sign_trans)
                 window["-OUTPUT-TABLE-"].update(list_output)
+            
+            result = show_signed_transaction(sign_trans)
+
+            if result == 'Sent':
+                window['-FEE-'].update('0')
+                list_output = []
+                window['-OUTPUT-TABLE-'].update(list_output)
+
+                sign_trans = None
+                is_sign = False
         
         elif event == '-CLEAR-':
             list_output = []
