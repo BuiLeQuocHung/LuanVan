@@ -466,6 +466,8 @@ def wallet_info_window():
         [sg.Text('Wallet name:', size=(20,)), sg.Text(wallet_name)],
         [sg.Text('Script type:', size=(20,)), sg.Text('P2MS')],
         [sg.Text('Locking Script:', size=(20,)), sg.Multiline(create_script())],
+        [sg.Text('Private key:', size=(20,)), sg.Multiline(privkey)],
+
     ]
 
     window = sg.Window("LVWallet", wallet_info_layout)
@@ -737,15 +739,15 @@ def main_window():
                 list_output = update_list_output(sign_trans)
                 window["-OUTPUT-TABLE-"].update(list_output)
             
-            result = show_signed_transaction(sign_trans)
+                result = show_signed_transaction(sign_trans)
 
-            if result == 'Sent':
-                window['-FEE-'].update('0')
-                list_output = []
-                window['-OUTPUT-TABLE-'].update(list_output)
+                if result == 'Sent':
+                    window['-FEE-'].update('0')
+                    list_output = []
+                    window['-OUTPUT-TABLE-'].update(list_output)
 
-                sign_trans = None
-                is_sign = False
+                    sign_trans = None
+                    is_sign = False
         
         elif event == '-CLEAR-':
             list_output = []

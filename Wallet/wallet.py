@@ -633,6 +633,19 @@ def get_output_amount(trans: Transaction):
     
     return amount
 
+def file_to_trans(path):
+    with open(path, "r+") as file:
+        trans_json = json.load(file)
+    
+    return Transaction.from_json(trans_json)
+
+def update_list_output(trans: Transaction):
+    result = []
+    for output in trans.outputList:
+        result.append([output.recvAddress, output.amount, output.script_type])
+    
+    return result
+
 def addr_list():
     addrs_dict = current_wallet.GetData(HdWalletBipDataTypes.ADDRESS).ToDict()
     list_address = [ pubkey_to_address(addrs_dict[each]['raw_compr_pub'][2:]) for each in addrs_dict]
@@ -813,7 +826,7 @@ def main_window():
     list_trans_json = get_wallet_trans_history()
     history_info = trans_history_summary_info(list_trans_json)
 
-    menu_def = [['File', ['Recently Open', 'Open', 'New','Close']] , ['Wallet',['Infomation']]]
+    menu_def = [['File', ['Recently Open', 'Open', 'New','Close']] , ['Wallet',['Information']]]
 
     sign_trans = None
     is_sign = False
@@ -852,7 +865,7 @@ def main_window():
                     right_click_selects=True,
         )],
         [sg.Button('P2PKH output', key='-P2PKH-OUTPUT-'), sg.Button('P2MS output', key='-P2MS-OUTPUT-'), sg.Button('Clear', key='-CLEAR-')],
-        [sg.Button('Open', key='-OPEN-TRANSACTION-')],
+        [sg.Button('Import', key='-IMPORT-TRANSACTION-'), sg.Button('Open', key='-OPEN-TRANSACTION-')],
     ]
 
     main_layout = [
@@ -925,8 +938,27 @@ def main_window():
             row = int( values["-ADDRESS-TABLE-"][0])
             address = filter_address(values['-ADDRESS-TYPE-'], address_balance_list)[row][1] #get address
             pyperclip.copy(address)
+        
+        elif event == '-IMPORT-TRANSACTION-':
+            path = sg.popup_get_file('Choose file')
+            if path != '' or path != None:
+                sign_trans = file_to_trans(path)
+                is_sign = False
 
-        elif event == "Infomation":
+                list_output = update_list_output(sign_trans)
+                window["-OUTPUT-TABLE-"].update(list_output)
+            
+                result = show_signed_transaction(sign_trans)
+
+                if result == 'Sent':
+                    window['-FEE-'].update('0')
+                    list_output = []
+                    window['-OUTPUT-TABLE-'].update(list_output)
+
+                    sign_trans = None
+                    is_sign = False
+
+        elif event == "Information":
             wallet_info_window()
         
         elif event == '-REFRESH-ADDR-TABLE-':
