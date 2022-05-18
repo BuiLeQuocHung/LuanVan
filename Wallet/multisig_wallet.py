@@ -530,13 +530,13 @@ def show_signed_transaction(trans: Transaction):
         [sg.Text('Fee: {}'.format(fee))],
         [sg.Text('Sent Amount: {}'.format(amount_sent))],
 
-        [sg.Text('Input')],
+        [sg.Text('Input' + ' ' + str(inputAmount))],
         [sg.Table(inputs, ['txid', 'idx'],  max_col_width=55,
                     auto_size_columns=True, justification='left', 
                     num_rows=5, key="-TRANS-INPUTS-TABLE-",
                     expand_x=True)],
 
-        [sg.Text('Output')],
+        [sg.Text('Output' + ' ' + str(outputAmount))],
         [sg.Table(outputs, ['receiver', 'amount'],  max_col_width=55,
                     auto_size_columns=True, justification='left', 
                     num_rows=5, key="-TRANS-OUTPUTS-TABLE-",
@@ -592,7 +592,12 @@ def show_trans_detail(trans_hash):
         confirmation = 'mempool'
 
     inputAmount = trans_info_json['inputAmount']
-    outputAmount = get_output_amount(trans)
+    sendAmount = 0
+    outputAmount = 0
+    for output in trans.outputList:
+        if output.recvAddress != create_script():
+            sendAmount += output.amount
+        outputAmount += output.amount
 
     inputs = [[each.txid, each.idx] for each in trans.inputList]
     outputs = [[each.recvAddress, each.amount] for each in trans.outputList]
@@ -601,14 +606,15 @@ def show_trans_detail(trans_hash):
         [sg.Text('Txid: {}'.format(trans_hash))],
         [sg.Text('Fee: {}'.format(inputAmount - outputAmount))],
         [sg.Text('Confirmation: {}'.format(confirmation))],
+        [sg.Text('Sent Amount: {}'.format(sendAmount))],
 
-        [sg.Text('Input: {}'.format(inputAmount))],
+        [sg.Text('Input' + ' ' + str(inputAmount))],
         [sg.Table(inputs, ['txid', 'idx'],  max_col_width=55,
                     auto_size_columns=True, justification='left', 
                     num_rows=5, key="-TRANS-INPUTS-TABLE-",
                     expand_x=True)],
 
-        [sg.Text('Output: {}'.format(outputAmount))],
+        [sg.Text('Output' + ' ' + str(outputAmount))],
         [sg.Table(outputs, ['receiver', 'amount'],  max_col_width=55,
                     auto_size_columns=True, justification='left', 
                     num_rows=5, key="-TRANS-OUTPUTS-TABLE-",
@@ -705,23 +711,24 @@ def main_window():
                 window["-OUTPUT-TABLE-"].update(list_output)
 
         elif event == '-OPEN-TRANSACTION-':
-            fee = int(values['-FEE-'])
-            sign_trans = createTransaction(fee, list_output)
+            if list_output:
+                fee = int(values['-FEE-'])
+                sign_trans = createTransaction(fee, list_output)
 
-        # if not is_sign:
-        #     sign_trans = sign_transaction(sign_trans)
-        #     is_sign = True
+                # if not is_sign:
+                #     sign_trans = sign_transaction(sign_trans)
+                #     is_sign = True
 
-            result = show_signed_transaction(sign_trans)
+                result = show_signed_transaction(sign_trans)
 
-            if result == 'Sent':
-                window['-FEE-'].update('0')
-                list_output = []
-                window['-OUTPUT-TABLE-'].update(list_output)
+                if result == 'Sent':
+                    window['-FEE-'].update('0')
+                    list_output = []
+                    window['-OUTPUT-TABLE-'].update(list_output)
 
-                sign_trans = None
-                is_sign = False
-            ## open Transaction
+                    sign_trans = None
+                    is_sign = False
+                ## open Transaction
 
         elif event == '-SUBMIT-TRANSACTION-':
             if sign_trans and is_sign:
@@ -732,12 +739,12 @@ def main_window():
 
         elif event == '-IMPORT-TRANSACTION-':
             path = sg.popup_get_file('Choose file')
-            if path != '' or path != None:
+            if path != None:
                 sign_trans = file_to_trans(path)
                 is_sign = False
 
-                list_output = update_list_output(sign_trans)
-                window["-OUTPUT-TABLE-"].update(list_output)
+                # list_output = update_list_output(sign_trans)
+                # window["-OUTPUT-TABLE-"].update(list_output)
             
                 result = show_signed_transaction(sign_trans)
 
@@ -769,6 +776,10 @@ def main_window():
 
         wallet_balance = get_balance(create_script())
         window['-WALLET-BALANCE-'].update(wallet_balance)
+
+        list_trans_json = get_history_info()
+        history_info = trans_history_summary_info(list_trans_json)
+        window['-HISTORY-TABLE-'].update(history_info)
 
 def main():
     result = start_wallet()

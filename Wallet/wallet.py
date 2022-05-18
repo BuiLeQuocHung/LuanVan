@@ -696,19 +696,19 @@ def show_signed_transaction(trans: Transaction):
         [sg.Text('Fee: {}'.format(fee))],
         [sg.Text('Sent Amount: {}'.format(amount_sent))],
 
-        [sg.Text('Input')],
+        [sg.Text('Input' + ' ' + str(inputAmount))],
         [sg.Table(inputs, ['txid', 'idx'],  max_col_width=55,
                     auto_size_columns=True, justification='left', 
                     num_rows=5, key="-TRANS-INPUTS-TABLE-",
                     expand_x=True)],
 
-        [sg.Text('Output')],
+        [sg.Text('Output' + ' ' + str(outputAmount))],
         [sg.Table(outputs, ['receiver', 'amount'],  max_col_width=55,
                     auto_size_columns=True, justification='left', 
                     num_rows=5, key="-TRANS-OUTPUTS-TABLE-",
                     expand_x=True)],
         
-        [sg.Button('Sign', key='-SIGN-'), sg.Button('Send', key='-SEND-')]
+        [sg.Button('Save', key='-SAVE-'), sg.Button('Sign', key='-SIGN-'), sg.Button('Send', key='-SEND-')]
     ]
 
     window = sg.Window('Transaction', trans_detail_layout)
@@ -721,6 +721,9 @@ def show_signed_transaction(trans: Transaction):
         if event in (None, 'Exit', 'Cancel'):
             return_result = 'Close'
             break
+            
+        elif event == '-SAVE-':
+            trans_to_file(trans)
         
         elif event == '-SIGN-':
             if not is_sign:
@@ -739,6 +742,11 @@ def show_signed_transaction(trans: Transaction):
     window.close()
     return return_result
 
+def trans_to_file(trans: Transaction):
+    path = os.path.join(root_path, 'Trans_file')
+    with open(path + f'/{trans.hash}.txt', "w+") as file:
+        json.dump(trans.toJSONwithSignature(), file, sort_keys=True, indent= 4, separators=(', ', ': '))
+
 def show_trans_detail(trans_hash):
     trans_info_json = get_trans_info(trans_hash)
     trans = Transaction.from_json(trans_info_json)
@@ -748,7 +756,12 @@ def show_trans_detail(trans_hash):
         confirmation = 'mempool'
 
     inputAmount = trans_info_json['inputAmount']
-    outputAmount = get_output_amount(trans)
+    sendAmount = 0
+    outputAmount = 0
+    for output in trans.outputList:
+        if output.recvAddress not in addr_list():
+            sendAmount += output.amount
+        outputAmount += output.amount
 
     inputs = [[each.txid, each.idx] for each in trans.inputList]
     outputs = [[each.recvAddress, each.amount] for each in trans.outputList]
@@ -757,15 +770,15 @@ def show_trans_detail(trans_hash):
         [sg.Text('Txid: {}'.format(trans_hash))],
         [sg.Text('Fee: {}'.format(inputAmount - outputAmount))],
         [sg.Text('Confirmation: {}'.format(confirmation))],
-        [sg.Text('Sent Amount: {}'.format(outputAmount))],
+        [sg.Text('Sent Amount: {}'.format(sendAmount))],
 
-        [sg.Text('Input')],
+        [sg.Text('Input' + ' ' + str(inputAmount))],
         [sg.Table(inputs, ['txid', 'idx'],  max_col_width=55,
                     auto_size_columns=True, justification='left', 
                     num_rows=5, key="-TRANS-INPUTS-TABLE-",
                     expand_x=True)],
 
-        [sg.Text('Output')],
+        [sg.Text('Output' + ' ' + str(outputAmount))],
         [sg.Table(outputs, ['receiver', 'amount'],  max_col_width=55,
                     auto_size_columns=True, justification='left', 
                     num_rows=5, key="-TRANS-OUTPUTS-TABLE-",
@@ -905,19 +918,20 @@ def main_window():
         
         elif event == '-OPEN-TRANSACTION-':
             fee = int(values['-FEE-'])
-            if validateAmountSpend(gettotalOutputAmount(list_output), fee, int(values['-WALLET-BALANCE-'])):
+            if list_output:
+                if validateAmountSpend(gettotalOutputAmount(list_output), fee, int(values['-WALLET-BALANCE-'])):
 
-                sign_trans = createTransaction(fee, list_output)
-                
-                result = show_signed_transaction(sign_trans)
+                    sign_trans = createTransaction(fee, list_output)
+                    
+                    result = show_signed_transaction(sign_trans)
 
-                if result == 'Sent':
-                    window['-FEE-'].update('0')
-                    list_output = []
-                    window['-OUTPUT-TABLE-'].update(list_output)
+                    if result == 'Sent':
+                        window['-FEE-'].update('0')
+                        list_output = []
+                        window['-OUTPUT-TABLE-'].update(list_output)
 
-                    sign_trans = None
-                    is_sign = False
+                        sign_trans = None
+                        is_sign = False
 
         # elif event == '-SUBMIT-TRANSACTION-':
         #     if sign_trans:
@@ -941,7 +955,8 @@ def main_window():
         
         elif event == '-IMPORT-TRANSACTION-':
             path = sg.popup_get_file('Choose file')
-            if path != '' or path != None:
+            print(path)
+            if path != None:
                 sign_trans = file_to_trans(path)
                 is_sign = False
 

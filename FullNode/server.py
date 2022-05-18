@@ -52,8 +52,7 @@ def threaded_client(connection):
             address = data_decode['param'][0]
             isExist = address_exist(address)
             connection.sendall(json.dumps(isExist).encode())
-            pass
-
+            
         elif task == 'getblock':
             blockHeight = data_decode['param'][0]
             block = getblock(blockHeight)
