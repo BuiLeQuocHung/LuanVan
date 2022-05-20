@@ -1034,7 +1034,7 @@ def update_used_address(block: Block):
 
 if __name__ == "__main__":
     ServerSocket = socket.socket()
-    host = '192.168.1.14'
+    host = '192.168.1.4'
     port = 50000
     ThreadCount = 0
     try:

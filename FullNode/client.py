@@ -689,8 +689,8 @@ def recalculateDifficulty():
 
     newDiff = oldDiff * timePassed / 500
 
-    newDiff = min(newDiff, oldDiff + 50)
-    newDiff = max(newDiff, oldDiff - 50)
+    newDiff = min(newDiff, 4*oldDiff)
+    newDiff = max(newDiff, 1/4 * oldDiff)
 
     return newDiff
 

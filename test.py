@@ -80,13 +80,14 @@ def bits_to_target(bits: int):
     coefficient = int.from_bytes(bits_bytes[1:], 'big')
     return coefficient * 256 ** (exponent - 3)
 
-block_13 = getblock(13)
-print(block_13.toJSON())
+# block_7 = getblock(7)
+# print(block_7.toJSON())
+# print(block_7.hash)
 
 
 
-# # with open('hahaha.txt', 'w+') as file:
-# #     json.dump(block_1.toJSON(), file, sort_keys=True, indent= 4, separators=(', ', ': '))
+# with open('hahaha.txt', 'w+') as file:
+#     json.dump(block_7.toJSON(), file, sort_keys=True, indent= 4, separators=(', ', ': '))
 
 # print('bits to target: ', (bits_to_target(block_1.BlockHeader.targetDiff)))
 # print(block_1.BlockBody.transList[1].inputList[0].toJSONwithSignature())
@@ -107,38 +108,38 @@ print(block_13.toJSON())
 #     print(len(temp))
 
 # =============================================================================
-block_time = []
-db_time = []
+# block_time = []
+# db_time = []
 
-for i in range(21):
-    total = 0
-    for n in range (10):
-        rand = n # random.randint(0, 6)
-        start_time = time_.time()
-        block = getblock(rand)
-        end_time = time_.time()
-        total += end_time - start_time
-    block_time.append(total)
+# for i in range(21):
+#     total = 0
+#     for n in range (10):
+#         rand = n # random.randint(0, 6)
+#         start_time = time_.time()
+#         block = getblock(rand)
+#         end_time = time_.time()
+#         total += end_time - start_time
+#     block_time.append(total)
 
-    total = 0
-    for n in range (10):
-        rand = n # random.randint(0, 6)
-        start_time = time_.time()
-        mydb['Block'].find_one({'blockHeight': rand})
-        end_time = time_.time()
-        total += end_time - start_time
-    db_time.append(total)
+#     total = 0
+#     for n in range (10):
+#         rand = n # random.randint(0, 6)
+#         start_time = time_.time()
+#         mydb['Block'].find_one({'blockHeight': rand})
+#         end_time = time_.time()
+#         total += end_time - start_time
+#     db_time.append(total)
 
-print(block_time)
-print(db_time)
+# print(block_time)
+# print(db_time)
 
-x_axis = np.arange(1,21)
-print(x_axis)
-plt.scatter(x_axis, block_time[1:], label = 'File access')
-plt.scatter(x_axis, db_time[1:], label = 'Database access')
+# x_axis = np.arange(1,21)
+# print(x_axis)
+# plt.scatter(x_axis, block_time[1:], label = 'File access')
+# plt.scatter(x_axis, db_time[1:], label = 'Database access')
 
-plt.legend()
-plt.show()
+# plt.legend()
+# plt.show()
 
 # print(block.getHash())
 # with open('hahaha.txt', 'w+') as file:
@@ -429,7 +430,7 @@ def multiplicationGF256(c, d):
     return e
 
 
-# print(multiplicationGF256(a,b))
+print(multiplicationGF256(a,b))
 
 # import time
 # a = '123423423422342'

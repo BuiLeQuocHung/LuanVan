@@ -10,7 +10,7 @@ import PySimpleGUI as sg
 wallet_path = os.path.join(root_path, 'multisig_wallets')
 
 ClientSocket = socket.socket()
-host = '192.168.1.14'
+host = '192.168.1.4'
 port = 50000
 
 try:
