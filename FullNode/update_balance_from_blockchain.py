@@ -78,6 +78,7 @@ def check_money_send_to_platform(block: Block):
                 update_balance(output.amount, userID)
                 history_id =  update_history(output.amount, userID)
                 add_historyID_to_user(history_id, userID)
+                notifyUser(history_id, userID)
 
 
 def update_balance(amount, userID):
@@ -123,6 +124,13 @@ def add_historyID_to_user(historyID, userID):
         historyID: historyID
     })
 
+def notifyUser(historyID, userID):
+    ref = db.reference("/user/{}/notification".format(userID))
+    ref.update({
+        historyID: historyID
+    })
+
+    pass
 
 def getUsername(userID):
     ref = db.reference("/user/{}".format(userID))
@@ -284,3 +292,4 @@ def sign_transaction(trans: Transaction):
 # name = ref.child("name").get()
 
 # print(name)
+ref = db.reference("/user/notification")
