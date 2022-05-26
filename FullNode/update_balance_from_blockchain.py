@@ -1,4 +1,5 @@
-import binascii, ed25519, hashlib, base58, ecdsa, random
+import binascii, ed25519, hashlib, base58, ecdsa, random, datetime
+from email import message
 import time as time_
 from hdwallet import HDWallet
 from hdwallet.utils import generate_entropy
@@ -75,6 +76,9 @@ def check_money_send_to_platform(block: Block):
             if output.recvAddress in addresses:
                 userID = addresses[output.recvAddress]
                 update_balance(output.amount, userID)
+                history_id =  update_history(output.amount, userID)
+                add_historyID_to_user(history_id, userID)
+
 
 def update_balance(amount, userID):
     ref = db.reference("/user/{}/own".format(userID))
@@ -84,6 +88,47 @@ def update_balance(amount, userID):
     ref.update({
         'lvcoin': new_lvcoin_balance
     })
+
+def update_history(amount, userID):
+    ref = db.reference("/history")
+
+    date_time = datetime.now()
+    date_only = date_time.strftime('%d%m%Y')
+    time_only = date_time.strftime('%H%M%S')
+
+    history_id = "{}{}".format(date_only, time_only)
+
+    to = getUsername(userID)
+
+    new_history = {
+        "amount": amount,
+        "date": date_time.strftime('%d/%m/%Y'),
+        "from": "Wallet",
+        "id": history_id,
+        "message": "Nạp tiền vào tài khoản",
+        "name": "Nạp tiền",
+        "time": date_time.strftime('%H:%M:%S'),
+        "to": to,
+    }
+
+    ref.update({
+        history_id: new_history
+    })
+
+    return history_id
+
+def add_historyID_to_user(historyID, userID):
+    ref = db.reference("/user/{}/history".format(userID))
+    ref.update({
+        historyID: historyID
+    })
+
+
+def getUsername(userID):
+    ref = db.reference("/user/{}".format(userID))
+    name = ref.child("name").get()
+
+    return name
 
 def getBlockCluster(blockHeight):
     return blockHeight // 100
@@ -234,3 +279,8 @@ def sign_transaction(trans: Transaction):
 # address_ed25519 = pubkey_to_address(binascii.hexlify(pubkey_ed25519.to_bytes()).decode())
 
 # print("address: ", address_ed25519)
+
+# ref = db.reference("/user/{}".format(1))
+# name = ref.child("name").get()
+
+# print(name)

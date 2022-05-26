@@ -718,7 +718,7 @@ def isGenesisBlockExist():
 
 def connectPeer():
     ClientSocket = socket.socket()
-    host = '192.168.1.16'
+    host = '192.168.11.200'
     port = 50000
 
     # print('Trying to connect')
@@ -738,6 +738,7 @@ def checkIsConnected(ClientSocket: socket.socket):
         return True
     except socket.timeout:
         return False
+    return False
 
 def is_mempool_empty():
     return mydb['Mempool'].count_documents({}) == 0
