@@ -10,8 +10,8 @@ import PySimpleGUI as sg
 wallet_path = os.path.join(root_path, 'multisig_wallets')
 
 ClientSocket = socket.socket()
-host = '192.168.11.115'
-port = 50000
+host = '192.168.1.17'
+port = 12345
 
 try:
     ClientSocket.connect((host, port))
@@ -487,6 +487,7 @@ def get_balance(address):
         balance += each['amount']
     return balance
 
+
 def show_signed_transaction(trans: Transaction):
     amount_sent = 0
     fee = 0
@@ -510,11 +511,23 @@ def show_signed_transaction(trans: Transaction):
         if each.signature == None:
             is_sign = False
             break
-        elif pubkey in each.publicKey.split(' '):
+        else:
             is_sign = True
 
 
-    status_text = 'Signed' if is_sign else  'Unsigned'
+    if is_sign:
+        current_number_of_sigs = len(trans.inputList[0].publicKey.split(' '))
+
+        if current_number_of_sigs == sigs_required:
+            status_text = 'Fully Signed ' 
+        else:
+            status_text = 'Partially Signed '
+
+        status_text += '{}'.format(current_number_of_sigs) + '/' + '{}'.format(sigs_required)
+    else:
+        status_text = 'Not Signed '
+        status_text += '{}'.format(0) + '/' + '{}'.format(sigs_required)
+
 
     # for each in trans.inputList:
     #     print(each.toJSON())
@@ -558,10 +571,19 @@ def show_signed_transaction(trans: Transaction):
             trans_to_file(trans)
         
         elif event == '-SIGN-':
-            if not is_sign:
+            if pubkey not in trans.inputList[0].publicKey.split(' '):
                 trans = sign_transaction(trans)
                 is_sign = True
-                window['-STATUS-'].update('Status: Signed')
+
+                current_number_of_sigs = len(trans.inputList[0].publicKey.split(' '))
+                if current_number_of_sigs == sigs_required:
+                    status_text = 'Fully Signed ' 
+                else:
+                    status_text = 'Partially Signed '
+
+                status_text += '{}'.format(current_number_of_sigs) + '/' + '{}'.format(sigs_required)
+
+                window['-STATUS-'].update('Status: {}'.format(status_text))
         
         elif event == '-SEND-':
             if is_sign:

@@ -718,8 +718,8 @@ def isGenesisBlockExist():
 
 def connectPeer():
     ClientSocket = socket.socket()
-    host = '192.168.11.200'
-    port = 50000
+    host = '192.168.1.170'
+    port = 12345
 
     # print('Trying to connect')
     try:

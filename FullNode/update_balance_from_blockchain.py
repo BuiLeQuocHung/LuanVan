@@ -223,7 +223,13 @@ def widthdrawn_money(amount, address):
 
         if totalInputAmount > amount + fee:
             break
-    outputList =[TransactionOutput(amount, address)]
+    
+    if len(address.split(' ')) == 1:
+        script_type = ScriptType.P2PKH
+    else:
+        script_type = ScriptType.P2MS
+
+    outputList =[TransactionOutput(amount, address, script_type)]
 
     change = totalInputAmount - amount - fee
     if change > 0:

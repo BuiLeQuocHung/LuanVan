@@ -80,9 +80,9 @@ def bits_to_target(bits: int):
     coefficient = int.from_bytes(bits_bytes[1:], 'big')
     return coefficient * 256 ** (exponent - 3)
 
-# block_7 = getblock(7)
-# print(block_7.toJSON())
-# print(block_7.hash)
+block_7 = getblock(15)
+print(block_7.toJSON())
+print(block_7.hash)
 
 
 
@@ -430,10 +430,22 @@ def multiplicationGF256(c, d):
     return e
 
 
-print(multiplicationGF256(a,b))
+# print(multiplicationGF256(a,b))
 
 # import time
 # a = '123423423422342'
 # start_time = time.time()
 # temp = hashlib.sha256(a.encode()).hexdigest()
 # print(time.time() - start_time)
+
+# data_decrypter = aes_cipher.DataDecrypter()
+# for i in range(1, 2):
+#     with open(os.path.join(this_path, 'wallet_{}.txt'.format(i)), 'r+') as file:
+#         content = binascii.unhexlify(file.read().encode())
+#         data_decrypter.Decrypt(content, 'hung', itr_num= 10)
+#         dec_data = data_decrypter.GetDecryptedData()
+
+#     print(dec_data.decode())
+
+#     with open('wallet_1_decrypt', 'w+') as file:
+#         file.write(dec_data.decode())
