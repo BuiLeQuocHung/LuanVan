@@ -571,7 +571,7 @@ def show_signed_transaction(trans: Transaction):
             trans_to_file(trans)
         
         elif event == '-SIGN-':
-            if pubkey not in trans.inputList[0].publicKey.split(' '):
+            if not is_sign or pubkey not in trans.inputList[0].publicKey.split(' '):
                 trans = sign_transaction(trans)
                 is_sign = True
 
